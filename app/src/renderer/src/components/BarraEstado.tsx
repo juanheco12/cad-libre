@@ -7,9 +7,12 @@ interface Props {
   seleccion: Seleccion | null;
   motor: string | null;
   mensaje: string | null;
+  version: string;
 }
 
-export default function BarraEstado({ documento, cursor, seleccion, motor, mensaje }: Props) {
+export default function BarraEstado({
+  documento, cursor, seleccion, motor, mensaje, version
+}: Props) {
   return (
     <footer className="estado">
       {cursor && (
@@ -34,6 +37,7 @@ export default function BarraEstado({ documento, cursor, seleccion, motor, mensa
       <span className={motor ? 'motor ok' : 'motor falta'}>
         {motor ? `Motor: ${motor}` : 'ODA File Converter no detectado (solo DXF)'}
       </span>
+      {version && <span className="version">v{version}</span>}
     </footer>
   );
 }

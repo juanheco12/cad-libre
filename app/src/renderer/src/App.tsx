@@ -1,11 +1,15 @@
 /** Composición principal: barra, visor, panel de capas y barra de estado. */
 import { useCallback, useEffect, useState } from 'react';
+import AvisoActualizacion from './components/AvisoActualizacion';
 import BarraEstado from './components/BarraEstado';
 import BarraHerramientas from './components/BarraHerramientas';
 import DialogoExportar from './components/DialogoExportar';
 import PanelCapas from './components/PanelCapas';
 import Visor from './components/Visor';
-import type { Documento, OpcionesExportar, ResumenFiltrado, Seleccion } from './lib/tipos';
+import { TEMAS, guardarTema, leerTemaGuardado, type NombreTema } from './lib/tema';
+import type {
+  Documento, InfoActualizacion, OpcionesExportar, ResumenFiltrado, Seleccion
+} from './lib/tipos';
 
 export default function App() {
   const [documento, setDocumento] = useState<Documento | null>(null);
@@ -17,13 +21,24 @@ export default function App() {
   const [ocupado, setOcupado] = useState(false);
   const [ajustarSenal, setAjustarSenal] = useState(0);
   const [modoArea, setModoArea] = useState(false);
-  const [area, setArea] = useState<[number, number, number, number] | null>(null);
+  const [area, setArea] = useState<[number, number][] | null>(null);
   const [dialogoExportar, setDialogoExportar] = useState(false);
+  const [tema, setTema] = useState<NombreTema>(leerTemaGuardado);
+  const [version, setVersion] = useState('');
+  const [actualizacion, setActualizacion] = useState<InfoActualizacion | null>(null);
 
   useEffect(() => {
     if (!window.cadlibre) return; // navegador sin Electron (solo para depurar estilos)
     window.cadlibre.estadoMotor().then((r) => setMotor(r.motor ?? null));
+    window.cadlibre.version().then(setVersion);
+    return window.cadlibre.alActualizar(setActualizacion);
   }, []);
+
+  // El tema se aplica al documento para que la interfaz siga al visor.
+  useEffect(() => {
+    document.documentElement.dataset.tema = tema;
+    guardarTema(tema);
+  }, [tema]);
 
   const abrir = useCallback(async () => {
     setOcupado(true);
@@ -55,6 +70,17 @@ export default function App() {
     } finally {
       setOcupado(false);
     }
+  }, []);
+
+  const cerrar = useCallback(async () => {
+    await window.cadlibre.cerrarArchivo();
+    setDocumento(null);
+    setCapasVisibles({});
+    setSeleccion(null);
+    setArea(null);
+    setModoArea(false);
+    setCursor(null);
+    setMensaje('Dibujo cerrado. Puede abrir otro archivo.');
   }, []);
 
   const exportar = useCallback(async (opciones: OpcionesExportar) => {
@@ -98,11 +124,14 @@ export default function App() {
         ocupado={ocupado}
         modoArea={modoArea}
         hayArea={area !== null}
+        tema={tema}
         onAbrir={abrir}
+        onCerrar={cerrar}
         onExportar={() => setDialogoExportar(true)}
         onAjustar={() => setAjustarSenal((n) => n + 1)}
         onModoArea={() => setModoArea((m) => !m)}
         onLimpiarArea={() => { setArea(null); setModoArea(false); }}
+        onTema={setTema}
       />
       <div className="cuerpo">
         <PanelCapas
@@ -113,17 +142,25 @@ export default function App() {
         />
         <main className="zona-visor">
           {documento ? (
-            <Visor
-              geometria={documento.geometria}
-              capasVisibles={capasVisibles}
-              seleccion={seleccion}
-              onSeleccion={setSeleccion}
-              onCursor={(x, y) => setCursor([x, y])}
-              ajustarSenal={ajustarSenal}
-              modoArea={modoArea}
-              area={area}
-              onArea={(a) => { setArea(a); if (a) setModoArea(false); }}
-            />
+            <>
+              <Visor
+                geometria={documento.geometria}
+                capasVisibles={capasVisibles}
+                seleccion={seleccion}
+                onSeleccion={setSeleccion}
+                onCursor={(x, y) => setCursor([x, y])}
+                ajustarSenal={ajustarSenal}
+                tema={TEMAS[tema]}
+                modoArea={modoArea}
+                area={area}
+                onArea={(a) => { setArea(a); if (a) setModoArea(false); }}
+              />
+              {modoArea && (
+                <div className="pista-area">
+                  Mantenga pulsado y dibuje el contorno de lo que quiere exportar
+                </div>
+              )}
+            </>
           ) : (
             <div className="bienvenida">
               <h1>CAD <b>LIBRE</b></h1>
@@ -145,6 +182,7 @@ export default function App() {
         seleccion={seleccion}
         motor={motor}
         mensaje={mensaje}
+        version={version}
       />
       {dialogoExportar && documento && (
         <DialogoExportar
@@ -155,6 +193,7 @@ export default function App() {
           onExportar={exportar}
         />
       )}
+      <AvisoActualizacion info={actualizacion} onCerrar={() => setActualizacion(null)} />
     </div>
   );
 }

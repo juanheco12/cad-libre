@@ -5,7 +5,7 @@ import type { Documento, OpcionesExportar } from '../lib/tipos';
 interface Props {
   documento: Documento;
   capasVisibles: Record<string, boolean>;
-  area: [number, number, number, number] | null;
+  area: [number, number][] | null;
   onCancelar: () => void;
   onExportar: (opciones: OpcionesExportar) => void;
 }
@@ -36,7 +36,7 @@ export default function DialogoExportar({
       capas: usarCapas
         ? capas.filter((c) => capasVisibles[c.nombre] !== false).map((c) => c.nombre)
         : undefined,
-      area: usarArea && area ? area : undefined,
+      poligono: usarArea && area ? area : undefined,
       modoArea
     });
   };
@@ -70,7 +70,7 @@ export default function DialogoExportar({
             <small>
               {hayFiltroPosible
                 ? 'Exporta únicamente lo elegido. Lo exportado conserva sus coordenadas y georreferencia exactas.'
-                : 'Para habilitarlo: oculte capas en el panel izquierdo o marque un área con el botón «▭ Marcar área».'}
+                : 'Para habilitarlo: oculte capas en el panel izquierdo o dibuje un contorno con el botón «✎ Marcar área».'}
             </small>
           </div>
         </label>

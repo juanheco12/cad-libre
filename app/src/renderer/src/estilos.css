@@ -1,11 +1,53 @@
-/* CAD LIBRE — tema negro + verde neón, minimalista */
-:root {
+/* CAD LIBRE — minimalista, con temas claro y oscuro.
+   El tema se elige en la barra superior y queda en data-tema del <html>. */
+:root, :root[data-tema='oscuro'] {
   --negro: #0d0d0d;
   --panel: #151515;
   --borde: #262626;
   --texto: #d9d9d9;
   --tenue: #8a8a8a;
   --verde: #39ff14;
+  --acento-texto: #061104;
+  --hover: #1d1d1d;
+  --control: #1f1f1f;
+}
+
+:root[data-tema='azul'] {
+  --negro: #101a2b;
+  --panel: #16223a;
+  --borde: #24344f;
+  --texto: #dce6f5;
+  --tenue: #8fa3c0;
+  --verde: #39ff14;
+  --acento-texto: #061104;
+  --hover: #1d2b45;
+  --control: #1b2942;
+}
+
+/* En los temas claros el verde neón es ilegible sobre blanco: el acento
+   pasa a un verde oscuro con suficiente contraste. */
+:root[data-tema='claro'] {
+  --negro: #ffffff;
+  --panel: #f4f4f4;
+  --borde: #d6d6d6;
+  --texto: #1c1c1c;
+  --tenue: #6b6b6b;
+  --verde: #14853a;
+  --acento-texto: #ffffff;
+  --hover: #e8e8e8;
+  --control: #ffffff;
+}
+
+:root[data-tema='gris'] {
+  --negro: #e9e9e9;
+  --panel: #dedede;
+  --borde: #c2c2c2;
+  --texto: #1c1c1c;
+  --tenue: #5f5f5f;
+  --verde: #14853a;
+  --acento-texto: #ffffff;
+  --hover: #d2d2d2;
+  --control: #f2f2f2;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -34,16 +76,16 @@ html, body, #raiz {
 .logo b { color: var(--verde); }
 
 button {
-  background: #1f1f1f; color: var(--texto);
+  background: var(--control); color: var(--texto);
   border: 1px solid var(--borde); border-radius: 6px;
   padding: 6px 12px; cursor: pointer; font-size: 13px;
 }
 button:hover:not(:disabled) { border-color: var(--verde); color: var(--verde); }
 button:disabled { opacity: 0.45; cursor: default; }
 button.principal {
-  background: var(--verde); color: #061104; font-weight: 600; border: none;
+  background: var(--verde); color: var(--acento-texto); font-weight: 600; border: none;
 }
-button.principal:hover:not(:disabled) { background: #2ecc0e; color: #061104; }
+button.principal:hover:not(:disabled) { filter: brightness(1.1); }
 button.exportar { border-color: var(--verde); color: var(--verde); }
 button.activo {
   background: rgba(57, 255, 20, 0.15); border-color: var(--verde);
@@ -78,8 +120,8 @@ button.activo {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 12px; cursor: pointer; user-select: none;
 }
-.panel-capas li:hover { background: #1d1d1d; }
-.panel-capas li.oculta .nombre { color: #555; text-decoration: line-through; }
+.panel-capas li:hover { background: var(--hover); }
+.panel-capas li.oculta .nombre { color: var(--tenue); text-decoration: line-through; opacity: 0.7; }
 .panel-capas .muestra {
   width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
   border: 1px solid #333;
@@ -129,6 +171,38 @@ canvas.visor.marcando-area, canvas.visor.marcando-area:active { cursor: crosshai
 }
 .nota-georref { color: var(--tenue); font-size: 12px; }
 .acciones-dialogo { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ---- selector de tema ---- */
+.selector-tema {
+  display: flex; align-items: center; gap: 6px; color: var(--tenue);
+}
+.selector-tema select {
+  background: var(--control); color: var(--texto);
+  border: 1px solid var(--borde); border-radius: 6px;
+  padding: 5px 8px; font-size: 13px; cursor: pointer;
+}
+.selector-tema select:hover { border-color: var(--verde); }
+
+/* ---- pista del modo área ---- */
+.pista-area {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  background: rgba(255, 140, 0, 0.15); color: #ff8c00;
+  border: 1px solid rgba(255, 140, 0, 0.5); border-radius: 20px;
+  padding: 6px 16px; font-size: 12px; pointer-events: none;
+}
+
+/* ---- aviso de actualización ---- */
+.aviso-actualizacion {
+  position: fixed; right: 16px; bottom: 42px; z-index: 20;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel); border: 1px solid var(--borde);
+  border-radius: 8px; padding: 10px 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.aviso-actualizacion.listo { border-color: var(--verde); }
+.aviso-actualizacion .cerrar { padding: 2px 7px; font-size: 11px; }
+
+.estado .version { color: var(--tenue); font-variant-numeric: tabular-nums; }
 
 .bienvenida {
   height: 100%; display: flex; flex-direction: column;

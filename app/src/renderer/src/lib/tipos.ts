@@ -79,8 +79,8 @@ export interface Seleccion {
 export interface OpcionesExportar {
   /** Capas a conservar; undefined = todas. */
   capas?: string[];
-  /** Rectángulo [x1, y1, x2, y2] en coordenadas del dibujo. */
-  area?: [number, number, number, number];
+  /** Contorno cerrado [[x, y], …] en coordenadas del dibujo. */
+  poligono?: [number, number][];
   /** contenida = solo lo totalmente dentro; intersecta = también lo que toca. */
   modoArea?: 'contenida' | 'intersecta';
 }
@@ -92,12 +92,24 @@ export interface ResumenFiltrado {
   sinGeometria: number;
 }
 
+export interface InfoActualizacion {
+  estado: 'buscando' | 'disponible' | 'descargando' | 'lista' | 'sin-novedad' | 'error';
+  version?: string;
+  porcentaje?: number;
+  mensaje?: string;
+}
+
 declare global {
   interface Window {
     cadlibre: {
       estadoMotor(): Promise<{ ok: boolean; motor: string | null }>;
       abrirArchivo(): Promise<Record<string, unknown>>;
+      cerrarArchivo(): Promise<{ ok: boolean }>;
       exportarDxf(opciones?: OpcionesExportar): Promise<Record<string, unknown>>;
+      version(): Promise<string>;
+      buscarActualizacion(): Promise<InfoActualizacion>;
+      instalarActualizacion(): Promise<void>;
+      alActualizar(cb: (info: InfoActualizacion) => void): () => void;
     };
   }
 }

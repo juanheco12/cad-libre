@@ -93,11 +93,13 @@ def cmd_exportar(args):
 
     capas = json.loads(args.capas) if args.capas else None
     area = None
-    if args.area:
+    if args.poligono:
+        area = json.loads(args.poligono)  # [[x, y], …] contorno libre
+    elif args.area:
         partes = [float(v) for v in args.area.split(",")]
         if len(partes) != 4:
             _fallar("El área debe ser x1,y1,x2,y2")
-        area = tuple(partes)
+        area = list(partes)
 
     filtrado = None
     if capas is not None or area is not None:
@@ -150,6 +152,7 @@ def main():
     p.add_argument("destino")
     p.add_argument("--capas", help="JSON con la lista de capas a conservar")
     p.add_argument("--area", help="Rectángulo x1,y1,x2,y2 en coordenadas del dibujo")
+    p.add_argument("--poligono", help="JSON [[x,y], …] con el contorno libre dibujado")
     p.add_argument(
         "--modo-area", default="contenida", choices=["contenida", "intersecta"],
         help="contenida: solo lo totalmente dentro; intersecta: también lo que toca el borde",

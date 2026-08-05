@@ -1,18 +1,24 @@
 {
   "name": "cad-libre",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Visor DWG y exportador a DXF con preservación total de georreferenciación",
   "main": "out/main/index.js",
   "author": "Juan Hernandez",
   "license": "MIT",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/juanheco12/cad-libre.git"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "dist": "electron-vite build && electron-builder --win"
+    "dist": "electron-vite build && electron-builder --win",
+    "release": "electron-vite build && electron-builder --win --publish always"
   },
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -31,8 +37,28 @@
     "appId": "com.juanhernandez.cadlibre",
     "productName": "CAD LIBRE",
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
     },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "CAD LIBRE",
+      "artifactName": "CAD-LIBRE-Setup-${version}.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "juanheco12",
+        "repo": "cad-libre",
+        "releaseType": "release"
+      }
+    ],
     "files": [
       "out/**"
     ],

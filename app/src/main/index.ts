@@ -3,6 +3,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { iniciarActualizador } from './actualizador';
 import { ejecutarBridge } from './python';
 
 let ventana: BrowserWindow | null = null;
@@ -36,6 +37,7 @@ function crearVentana(): void {
 app.whenReady().then(() => {
   workdir = mkdtempSync(path.join(os.tmpdir(), 'cadlibre-'));
   crearVentana();
+  iniciarActualizador(ventana!, app.isPackaged);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) crearVentana();
   });
@@ -49,6 +51,20 @@ app.on('window-all-closed', () => {
 // ------------------------------------------------------------------- IPC
 
 ipcMain.handle('motor:estado', async () => ejecutarBridge(['motor']));
+
+ipcMain.handle('app:version', () => app.getVersion());
+
+/** Libera el dibujo actual y su geometría temporal. */
+ipcMain.handle('archivo:cerrar', () => {
+  if (workdir) {
+    // Se vacía la carpeta temporal: los dibujos grandes dejan JSON de
+    // geometría de varios cientos de MB que no hay razón de conservar.
+    rmSync(workdir, { recursive: true, force: true });
+    workdir = mkdtempSync(path.join(os.tmpdir(), 'cadlibre-'));
+  }
+  dxfActual = null;
+  return { ok: true };
+});
 
 ipcMain.handle('archivo:abrir', async () => {
   const seleccion = await dialog.showOpenDialog(ventana!, {
@@ -80,7 +96,7 @@ ipcMain.handle('archivo:abrir', async () => {
 
 interface OpcionesExportar {
   capas?: string[];
-  area?: [number, number, number, number];
+  poligono?: [number, number][];
   modoArea?: 'contenida' | 'intersecta';
 }
 
@@ -96,7 +112,7 @@ ipcMain.handle('archivo:exportar', async (_ev, opciones?: OpcionesExportar) => {
 
   const args = ['exportar', dxfActual, seleccion.filePath];
   if (opciones?.capas) args.push('--capas', JSON.stringify(opciones.capas));
-  if (opciones?.area) args.push('--area', opciones.area.join(','));
+  if (opciones?.poligono) args.push('--poligono', JSON.stringify(opciones.poligono));
   if (opciones?.modoArea) args.push('--modo-area', opciones.modoArea);
 
   const respuesta = await ejecutarBridge(args);

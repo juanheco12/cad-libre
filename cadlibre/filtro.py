@@ -10,6 +10,9 @@ Consecuencia: todo lo que no se borra queda exactamente como estaba. Las
 entidades conservan sus coordenadas X, Y, Z originales, y el encabezado, la
 georreferenciación, las definiciones de capa, los estilos de texto y de cota
 siguen intactos. La exportación sigue sin mover, escalar ni rotar nada.
+
+El área puede ser cualquier contorno cerrado (el usuario lo dibuja a mano
+alzada en el visor), no solo un rectángulo.
 """
 
 from __future__ import annotations
@@ -19,8 +22,15 @@ from dataclasses import dataclass, field
 import ezdxf
 from ezdxf import bbox
 
+from .geometria2d import (
+    Punto,
+    caja_dentro_de_poligono,
+    caja_toca_poligono,
+    rectangulo_a_poligono,
+)
+
 # Modos de selección por área, equivalentes a los de AutoCAD:
-#   "contenida"  → solo entidades totalmente dentro del rectángulo (window)
+#   "contenida"  → solo entidades totalmente dentro del contorno (window)
 #   "intersecta" → además, las que lo tocan aunque se salgan (crossing)
 MODOS_AREA = ("contenida", "intersecta")
 
@@ -48,38 +58,43 @@ def _caja(entidad):
     return caja
 
 
-def _dentro(caja, area, modo: str) -> bool:
-    x1, y1, x2, y2 = area
-    minx, miny = min(x1, x2), min(y1, y2)
-    maxx, maxy = max(x1, x2), max(y1, y2)
-    ext_min, ext_max = caja.extmin, caja.extmax
+def _pasa_area(caja, poligono: list[Punto], modo: str) -> bool:
+    minx, miny = caja.extmin.x, caja.extmin.y
+    maxx, maxy = caja.extmax.x, caja.extmax.y
     if modo == "intersecta":
-        # Se descarta solo si no hay solape en algún eje
-        return not (
-            ext_max.x < minx or ext_min.x > maxx
-            or ext_max.y < miny or ext_min.y > maxy
-        )
-    return (
-        ext_min.x >= minx and ext_max.x <= maxx
-        and ext_min.y >= miny and ext_max.y <= maxy
-    )
+        return caja_toca_poligono(minx, miny, maxx, maxy, poligono)
+    return caja_dentro_de_poligono(minx, miny, maxx, maxy, poligono)
+
+
+def normalizar_area(area) -> list[Punto] | None:
+    """Acepta un rectángulo [x1,y1,x2,y2] o un polígono [[x,y], …]."""
+    if not area:
+        return None
+    if len(area) == 4 and all(isinstance(v, (int, float)) for v in area):
+        return rectangulo_a_poligono(*area)
+    poligono = [(float(p[0]), float(p[1])) for p in area]
+    if len(poligono) < 3:
+        raise ValueError("El área libre necesita al menos 3 puntos.")
+    return poligono
 
 
 def exportar_filtrado(
     origen: str,
     destino: str,
     capas: list[str] | None = None,
-    area: tuple[float, float, float, float] | None = None,
+    area=None,
     modo_area: str = "contenida",
 ) -> ResultadoFiltro:
     """Escribe en `destino` el DXF con solo las entidades que pasan el filtro.
 
     capas: nombres de las capas a conservar (None = todas).
-    area:  (x1, y1, x2, y2) en coordenadas del dibujo (None = todo el plano).
+    area:  rectángulo [x1,y1,x2,y2] o polígono [[x,y], …] en coordenadas del
+           dibujo (None = todo el plano).
     """
     if modo_area not in MODOS_AREA:
         raise ValueError(f"Modo de área no válido: {modo_area}")
-    if capas is None and area is None:
+    poligono = normalizar_area(area)
+    if capas is None and poligono is None:
         raise ValueError("Sin filtro no debe usarse esta ruta: copie el DXF tal cual.")
 
     doc = ezdxf.readfile(origen)
@@ -96,13 +111,13 @@ def exportar_filtrado(
                     continue
             except Exception:
                 pass
-        if area is not None:
+        if poligono is not None:
             caja = _caja(entidad)
             if caja is None:
                 # Sin caja calculable no se puede decidir: se conserva, para
                 # no perder información por un fallo de medición.
                 resultado.sin_geometria += 1
-            elif not _dentro(caja, area, modo_area):
+            elif not _pasa_area(caja, poligono, modo_area):
                 a_eliminar.append(entidad)
                 continue
         resultado.conservadas += 1
