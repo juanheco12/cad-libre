@@ -5,12 +5,25 @@ visualiza (zoom, pan, selección, capas) y los exporta a DXF conservando
 exactamente toda la información geoespacial**: coordenadas X/Y/Z originales,
 sistema de coordenadas (CRS/EPSG), capas, bloques, textos, polilíneas y cotas.
 
+## Funciones
+
+- Visor con zoom, pan, selección de entidades y panel de capas.
+- **Temas**: fondo oscuro, blanco, gris claro o azul noche. Sobre fondo claro,
+  los colores luminosos del DXF (blanco, amarillo) se oscurecen *al pintarlos*
+  para que sigan siendo legibles; el archivo nunca se modifica.
+- **Exportación selectiva**: todo el dibujo, o solo las capas visibles y/o un
+  contorno dibujado a mano alzada sobre el plano.
+- **Actualización automática** desde GitHub Releases.
+
 ## Garantía de fidelidad
 
 - La conversión DWG→DXF la hace **ODA File Converter** (el mismo motor que usa
   QGIS): es una traducción 1:1 del contenido, sin mover, escalar ni rotar nada.
-- La app **nunca reescribe el DXF convertido**: la exportación es una copia
-  binaria exacta de ese resultado.
+- Exportando **todo el dibujo**, la app nunca reescribe el DXF convertido: es
+  una copia binaria exacta de ese resultado.
+- Exportando **una selección**, se abre el DXF y se *eliminan* las entidades
+  descartadas en vez de reconstruir el documento. Lo que queda conserva sus
+  coordenadas, el GEODATA, los estilos y las definiciones de capa intactos.
 - La versión DXF de salida es siempre R2010+ (por defecto R2018), porque el
   objeto **GEODATA** —la georreferenciación embebida— solo existe desde R2010.
 - Junto al DXF se generan automáticamente:
@@ -67,9 +80,29 @@ npm run dev        # arranca Electron con recarga
 
 ## Compilar instalador
 
+El motor Python se empaqueta primero con PyInstaller (así el usuario final no
+necesita tener Python instalado) y luego se construye la app:
+
 ```powershell
+.venv\Scripts\pyinstaller.exe --noconfirm --name cadlibre-motor `
+  --collect-all pyproj --collect-submodules ezdxf `
+  --distpath build_motor/dist --workpath build_motor/work `
+  --specpath build_motor motor_entrada.py
+
 cd app
-npm run dist       # genera el instalador NSIS en app/dist/
+npm run dist       # instalador NSIS en app/dist/
+```
+
+## Publicar una versión
+
+`npm run release` compila y sube el instalador a GitHub Releases; las copias
+ya instaladas lo detectan y se actualizan solas.
+
+```powershell
+$env:GH_TOKEN = (gh auth token)
+cd app
+npm version minor --no-git-tag-version   # o patch / major
+npm run release
 ```
 
 ## Uso por consola (sin interfaz)
