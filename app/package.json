@@ -38,8 +38,8 @@
     ],
     "extraResources": [
       {
-        "from": "../cadlibre",
-        "to": "cadlibre"
+        "from": "../build_motor/dist/cadlibre-motor",
+        "to": "motor"
       }
     ]
   }

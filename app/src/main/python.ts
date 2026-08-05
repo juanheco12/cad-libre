@@ -1,13 +1,9 @@
 /**
- * Localización y ejecución del motor Python (cadlibre.bridge).
+ * Localización y ejecución del motor (cadlibre.bridge).
  *
- * Orden de búsqueda del intérprete:
- *   1. Variable de entorno CADLIBRE_PYTHON
- *   2. El venv del proyecto: <raíz>/.venv/Scripts/python.exe
- *   3. "python" del PATH
- *
- * El paquete `cadlibre` vive en la raíz del proyecto (junto a app/) en
- * desarrollo, o en resources/cadlibre cuando la app está empaquetada.
+ * En la app instalada se usa `cadlibre-motor.exe`, un ejecutable autónomo
+ * generado con PyInstaller: el usuario final no necesita tener Python.
+ * En desarrollo se usa el intérprete del venv del proyecto.
  */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -16,10 +12,16 @@ import { app } from 'electron';
 
 function raizProyecto(): string {
   if (app.isPackaged) {
-    return process.resourcesPath; // resources/cadlibre
+    return process.resourcesPath;
   }
   // app/out/main → app → raíz "CAD LIBRE"
   return path.resolve(__dirname, '..', '..', '..');
+}
+
+/** Ejecutable autónomo del motor, si está disponible (app instalada). */
+function motorEmpaquetado(): string | null {
+  const exe = path.join(raizProyecto(), 'motor', 'cadlibre-motor.exe');
+  return existsSync(exe) ? exe : null;
 }
 
 export function rutaPython(): string {
@@ -39,8 +41,11 @@ export interface RespuestaBridge {
 
 /** Ejecuta un comando del bridge y devuelve su respuesta JSON. */
 export function ejecutarBridge(argumentos: string[]): Promise<RespuestaBridge> {
+  const exe = motorEmpaquetado();
+  const programa: string = exe ?? rutaPython();
+  const args: string[] = exe ? argumentos : ['-m', 'cadlibre.bridge', ...argumentos];
   return new Promise((resolver) => {
-    const proceso = spawn(rutaPython(), ['-m', 'cadlibre.bridge', ...argumentos], {
+    const proceso = spawn(programa, args, {
       cwd: raizProyecto(),
       windowsHide: true,
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' }

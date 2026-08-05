@@ -4,4 +4,5 @@ __pycache__/
 app/node_modules/
 app/out/
 app/dist/
+build_motor/
 tests/datos/
