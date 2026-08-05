@@ -45,6 +45,10 @@ button.principal {
 }
 button.principal:hover:not(:disabled) { background: #2ecc0e; color: #061104; }
 button.exportar { border-color: var(--verde); color: var(--verde); }
+button.activo {
+  background: rgba(57, 255, 20, 0.15); border-color: var(--verde);
+  color: var(--verde);
+}
 
 .info-archivo { color: var(--tenue); display: flex; align-items: center; gap: 8px; }
 .epsg {
@@ -87,7 +91,44 @@ button.exportar { border-color: var(--verde); color: var(--verde); }
 
 /* ---- visor ---- */
 .zona-visor { flex: 1; position: relative; min-width: 0; }
-canvas.visor { width: 100%; height: 100%; display: block; cursor: crosshair; }
+canvas.visor { width: 100%; height: 100%; display: block; cursor: grab; }
+canvas.visor:active { cursor: grabbing; }
+canvas.visor.marcando-area, canvas.visor.marcando-area:active { cursor: crosshair; }
+
+/* ---- diálogo de exportación ---- */
+.velo {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center; z-index: 10;
+}
+.dialogo {
+  width: 460px; max-width: 92vw;
+  background: var(--panel); border: 1px solid var(--borde); border-radius: 10px;
+  padding: 20px; display: flex; flex-direction: column; gap: 12px;
+}
+.dialogo h2 { font-size: 16px; color: var(--verde); font-weight: 600; }
+.dialogo .opcion {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px; border: 1px solid var(--borde); border-radius: 8px; cursor: pointer;
+}
+.dialogo .opcion:hover { border-color: var(--verde); }
+.dialogo .opcion.deshabilitada { opacity: 0.55; cursor: default; }
+.dialogo .opcion.deshabilitada:hover { border-color: var(--borde); }
+.dialogo .opcion small { display: block; color: var(--tenue); margin-top: 2px; }
+.dialogo input[type='radio'], .dialogo input[type='checkbox'] {
+  accent-color: var(--verde); margin-top: 3px;
+}
+.sub-opciones {
+  margin-left: 14px; padding-left: 14px; border-left: 2px solid var(--borde);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.sub-opciones label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.sub-opciones label.deshabilitada { opacity: 0.55; cursor: default; }
+.sub-opciones small { color: var(--tenue); }
+.modo-area {
+  display: flex; gap: 16px; margin-left: 22px; color: var(--tenue); flex-wrap: wrap;
+}
+.nota-georref { color: var(--tenue); font-size: 12px; }
+.acciones-dialogo { display: flex; justify-content: flex-end; gap: 8px; }
 
 .bienvenida {
   height: 100%; display: flex; flex-direction: column;

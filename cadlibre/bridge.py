@@ -23,6 +23,7 @@ import sys
 import traceback
 
 from .converter import VERSION_SALIDA_DEFECTO, convertir_dwg_a_dxf, detectar_motor
+from .filtro import exportar_filtrado
 from .geodata import escribir_sidecars, leer_georreferenciacion
 from .render_json import extraer_geometria
 from .verify import inventariar
@@ -89,8 +90,29 @@ def cmd_exportar(args):
     if not os.path.isfile(origen):
         _fallar(f"No existe el DXF convertido: {origen}")
     os.makedirs(os.path.dirname(destino), exist_ok=True)
-    if origen != destino:
+
+    capas = json.loads(args.capas) if args.capas else None
+    area = None
+    if args.area:
+        partes = [float(v) for v in args.area.split(",")]
+        if len(partes) != 4:
+            _fallar("El área debe ser x1,y1,x2,y2")
+        area = tuple(partes)
+
+    filtrado = None
+    if capas is not None or area is not None:
+        # Exportación selectiva: se eliminan del DXF las entidades que no
+        # pasan el filtro; lo conservado queda idéntico al original.
+        r = exportar_filtrado(origen, destino, capas, area, args.modo_area)
+        filtrado = {
+            "conservadas": r.conservadas,
+            "eliminadas": r.eliminadas,
+            "capasExcluidas": r.capas_excluidas,
+            "sinGeometria": r.sin_geometria,
+        }
+    elif origen != destino:
         shutil.copy2(origen, destino)  # copia binaria exacta: nada se reescribe
+
     info = leer_georreferenciacion(destino)
     laterales = escribir_sidecars(destino, info)
     _responder({
@@ -99,6 +121,7 @@ def cmd_exportar(args):
         "laterales": laterales,
         "epsg": info.epsg,
         "nombreCrs": info.nombre_crs,
+        "filtrado": filtrado,
     })
 
 
@@ -125,6 +148,12 @@ def main():
     p = sub.add_parser("exportar")
     p.add_argument("dxf")
     p.add_argument("destino")
+    p.add_argument("--capas", help="JSON con la lista de capas a conservar")
+    p.add_argument("--area", help="Rectángulo x1,y1,x2,y2 en coordenadas del dibujo")
+    p.add_argument(
+        "--modo-area", default="contenida", choices=["contenida", "intersecta"],
+        help="contenida: solo lo totalmente dentro; intersecta: también lo que toca el borde",
+    )
     p.set_defaults(func=cmd_exportar)
 
     p = sub.add_parser("motor")

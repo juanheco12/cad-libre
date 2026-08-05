@@ -78,7 +78,13 @@ ipcMain.handle('archivo:abrir', async () => {
   return { ...respuesta, geometria };
 });
 
-ipcMain.handle('archivo:exportar', async () => {
+interface OpcionesExportar {
+  capas?: string[];
+  area?: [number, number, number, number];
+  modoArea?: 'contenida' | 'intersecta';
+}
+
+ipcMain.handle('archivo:exportar', async (_ev, opciones?: OpcionesExportar) => {
   if (!dxfActual) return { ok: false, error: 'No hay ningún dibujo abierto.' };
   const nombre = path.basename(dxfActual);
   const seleccion = await dialog.showSaveDialog(ventana!, {
@@ -87,7 +93,13 @@ ipcMain.handle('archivo:exportar', async () => {
     filters: [{ name: 'DXF', extensions: ['dxf'] }]
   });
   if (seleccion.canceled || !seleccion.filePath) return { ok: false, cancelado: true };
-  const respuesta = await ejecutarBridge(['exportar', dxfActual, seleccion.filePath]);
+
+  const args = ['exportar', dxfActual, seleccion.filePath];
+  if (opciones?.capas) args.push('--capas', JSON.stringify(opciones.capas));
+  if (opciones?.area) args.push('--area', opciones.area.join(','));
+  if (opciones?.modoArea) args.push('--modo-area', opciones.modoArea);
+
+  const respuesta = await ejecutarBridge(args);
   if (respuesta.ok) {
     shell.showItemInFolder(seleccion.filePath);
   }

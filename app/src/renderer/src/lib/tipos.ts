@@ -75,12 +75,29 @@ export interface Seleccion {
   capa: string;
 }
 
+/** Filtros de la exportación selectiva; vacío = todo el dibujo (copia 1:1). */
+export interface OpcionesExportar {
+  /** Capas a conservar; undefined = todas. */
+  capas?: string[];
+  /** Rectángulo [x1, y1, x2, y2] en coordenadas del dibujo. */
+  area?: [number, number, number, number];
+  /** contenida = solo lo totalmente dentro; intersecta = también lo que toca. */
+  modoArea?: 'contenida' | 'intersecta';
+}
+
+export interface ResumenFiltrado {
+  conservadas: number;
+  eliminadas: number;
+  capasExcluidas: string[];
+  sinGeometria: number;
+}
+
 declare global {
   interface Window {
     cadlibre: {
       estadoMotor(): Promise<{ ok: boolean; motor: string | null }>;
       abrirArchivo(): Promise<Record<string, unknown>>;
-      exportarDxf(): Promise<Record<string, unknown>>;
+      exportarDxf(opciones?: OpcionesExportar): Promise<Record<string, unknown>>;
     };
   }
 }

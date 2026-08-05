@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import BarraEstado from './components/BarraEstado';
 import BarraHerramientas from './components/BarraHerramientas';
+import DialogoExportar from './components/DialogoExportar';
 import PanelCapas from './components/PanelCapas';
 import Visor from './components/Visor';
-import type { Documento, Seleccion } from './lib/tipos';
+import type { Documento, OpcionesExportar, ResumenFiltrado, Seleccion } from './lib/tipos';
 
 export default function App() {
   const [documento, setDocumento] = useState<Documento | null>(null);
@@ -15,6 +16,9 @@ export default function App() {
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [ajustarSenal, setAjustarSenal] = useState(0);
+  const [modoArea, setModoArea] = useState(false);
+  const [area, setArea] = useState<[number, number, number, number] | null>(null);
+  const [dialogoExportar, setDialogoExportar] = useState(false);
 
   useEffect(() => {
     if (!window.cadlibre) return; // navegador sin Electron (solo para depurar estilos)
@@ -37,6 +41,8 @@ export default function App() {
       for (const capa of doc.geometria.capas) visibles[capa.nombre] = capa.visible;
       setCapasVisibles(visibles);
       setSeleccion(null);
+      setArea(null);
+      setModoArea(false);
       setAjustarSenal((n) => n + 1);
       const geo = doc.georref;
       setMensaje(
@@ -51,22 +57,23 @@ export default function App() {
     }
   }, []);
 
-  const exportar = useCallback(async () => {
+  const exportar = useCallback(async (opciones: OpcionesExportar) => {
+    setDialogoExportar(false);
     setOcupado(true);
     setMensaje(null);
     try {
-      const r = await window.cadlibre.exportarDxf();
+      const r = await window.cadlibre.exportarDxf(opciones);
       if (r.cancelado) return;
       if (!r.ok) {
         setMensaje(String(r.error ?? 'Error al exportar'));
         return;
       }
-      const laterales = (r.laterales as string[] | undefined)?.length ?? 0;
-      setMensaje(
-        `DXF exportado sin modificar el dibujo` +
-        (r.epsg ? ` · EPSG:${r.epsg} en .prj y metadatos` : '') +
-        ` (${laterales} archivos laterales)`
-      );
+      const filtrado = r.filtrado as ResumenFiltrado | null;
+      const base = filtrado
+        ? `DXF exportado: ${filtrado.conservadas} entidades conservadas, ` +
+          `${filtrado.eliminadas} excluidas`
+        : 'DXF exportado completo sin modificar el dibujo';
+      setMensaje(base + (r.epsg ? ` · EPSG:${r.epsg} en .prj y metadatos` : ''));
     } finally {
       setOcupado(false);
     }
@@ -89,9 +96,13 @@ export default function App() {
       <BarraHerramientas
         documento={documento}
         ocupado={ocupado}
+        modoArea={modoArea}
+        hayArea={area !== null}
         onAbrir={abrir}
-        onExportar={exportar}
+        onExportar={() => setDialogoExportar(true)}
         onAjustar={() => setAjustarSenal((n) => n + 1)}
+        onModoArea={() => setModoArea((m) => !m)}
+        onLimpiarArea={() => { setArea(null); setModoArea(false); }}
       />
       <div className="cuerpo">
         <PanelCapas
@@ -109,6 +120,9 @@ export default function App() {
               onSeleccion={setSeleccion}
               onCursor={(x, y) => setCursor([x, y])}
               ajustarSenal={ajustarSenal}
+              modoArea={modoArea}
+              area={area}
+              onArea={(a) => { setArea(a); if (a) setModoArea(false); }}
             />
           ) : (
             <div className="bienvenida">
@@ -132,6 +146,15 @@ export default function App() {
         motor={motor}
         mensaje={mensaje}
       />
+      {dialogoExportar && documento && (
+        <DialogoExportar
+          documento={documento}
+          capasVisibles={capasVisibles}
+          area={area}
+          onCancelar={() => setDialogoExportar(false)}
+          onExportar={exportar}
+        />
+      )}
     </div>
   );
 }
