@@ -1,0 +1,144 @@
+# -*- coding: utf-8 -*-
+"""Puente entre la aplicación Electron y el motor Python.
+
+Cada comando imprime UNA línea JSON en stdout (utf-8):
+
+    python -m cadlibre.bridge abrir <archivo.dwg|dxf> --workdir <carpeta>
+    python -m cadlibre.bridge exportar <archivo.dxf> <destino.dxf>
+    python -m cadlibre.bridge motor
+
+`abrir` convierte el DWG a DXF (1:1, sin transformar nada) en la carpeta de
+trabajo, lee la georreferenciación y genera el JSON de geometría del visor.
+`exportar` copia el DXF convertido al destino elegido —sin reescribirlo— y
+genera a su lado el .prj y los metadatos de georreferenciación.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import sys
+import traceback
+
+from .converter import VERSION_SALIDA_DEFECTO, convertir_dwg_a_dxf, detectar_motor
+from .geodata import escribir_sidecars, leer_georreferenciacion
+from .render_json import extraer_geometria
+from .verify import inventariar
+
+
+def _responder(datos: dict, codigo: int = 0):
+    sys.stdout.write(json.dumps(datos, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+    raise SystemExit(codigo)
+
+
+def _fallar(mensaje: str):
+    _responder({"ok": False, "error": mensaje}, 1)
+
+
+def cmd_abrir(args):
+    ruta = os.path.abspath(args.archivo)
+    if not os.path.isfile(ruta):
+        _fallar(f"No existe el archivo: {ruta}")
+    os.makedirs(args.workdir, exist_ok=True)
+    extension = os.path.splitext(ruta)[1].lower()
+
+    if extension == ".dwg":
+        ruta_dxf = convertir_dwg_a_dxf(ruta, args.workdir, VERSION_SALIDA_DEFECTO)
+    elif extension == ".dxf":
+        ruta_dxf = ruta  # se visualiza tal cual; nunca se reescribe
+    else:
+        _fallar(f"Extensión no soportada: {extension}")
+
+    info = leer_georreferenciacion(ruta_dxf)
+    inv = inventariar(ruta_dxf)
+    nombre = os.path.splitext(os.path.basename(ruta_dxf))[0]
+    ruta_geom = os.path.join(args.workdir, nombre + ".geom.json")
+    resumen_geom = extraer_geometria(ruta_dxf, ruta_geom)
+
+    _responder({
+        "ok": True,
+        "origen": ruta,
+        "dxf": ruta_dxf,
+        "geometria": ruta_geom,
+        "georref": {
+            "tieneGeodata": info.tiene_geodata,
+            "epsg": info.epsg,
+            "nombreCrs": info.nombre_crs,
+            "observaciones": info.observaciones,
+        },
+        "inventario": {
+            "versionDxf": inv.version_dxf,
+            "unidades": inv.unidades,
+            "extmin": inv.extmin,
+            "extmax": inv.extmax,
+            "capas": len(inv.capas),
+            "bloques": len(inv.bloques),
+            "entidades": inv.total_entidades,
+            "porTipo": dict(inv.entidades),
+        },
+        "resumenGeometria": resumen_geom,
+    })
+
+
+def cmd_exportar(args):
+    origen = os.path.abspath(args.dxf)
+    destino = os.path.abspath(args.destino)
+    if not os.path.isfile(origen):
+        _fallar(f"No existe el DXF convertido: {origen}")
+    os.makedirs(os.path.dirname(destino), exist_ok=True)
+    if origen != destino:
+        shutil.copy2(origen, destino)  # copia binaria exacta: nada se reescribe
+    info = leer_georreferenciacion(destino)
+    laterales = escribir_sidecars(destino, info)
+    _responder({
+        "ok": True,
+        "dxf": destino,
+        "laterales": laterales,
+        "epsg": info.epsg,
+        "nombreCrs": info.nombre_crs,
+    })
+
+
+def cmd_motor(_args):
+    motor = detectar_motor()
+    _responder({
+        "ok": True,
+        "motor": motor.nombre if motor else None,
+        "ejecutable": motor.ejecutable if motor else None,
+    })
+
+
+def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    parser = argparse.ArgumentParser(prog="cadlibre.bridge")
+    sub = parser.add_subparsers(dest="comando", required=True)
+
+    p = sub.add_parser("abrir")
+    p.add_argument("archivo")
+    p.add_argument("--workdir", required=True)
+    p.set_defaults(func=cmd_abrir)
+
+    p = sub.add_parser("exportar")
+    p.add_argument("dxf")
+    p.add_argument("destino")
+    p.set_defaults(func=cmd_exportar)
+
+    p = sub.add_parser("motor")
+    p.set_defaults(func=cmd_motor)
+
+    args = parser.parse_args()
+    try:
+        args.func(args)
+    except SystemExit:
+        raise
+    except Exception as e:
+        traceback.print_exc(file=sys.stderr)
+        _fallar(str(e))
+
+
+if __name__ == "__main__":
+    main()

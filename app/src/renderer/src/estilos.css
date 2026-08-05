@@ -1,0 +1,112 @@
+/* CAD LIBRE — tema negro + verde neón, minimalista */
+:root {
+  --negro: #0d0d0d;
+  --panel: #151515;
+  --borde: #262626;
+  --texto: #d9d9d9;
+  --tenue: #8a8a8a;
+  --verde: #39ff14;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #raiz {
+  height: 100%;
+  background: var(--negro);
+  color: var(--texto);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.aplicacion { display: flex; flex-direction: column; height: 100%; }
+.cuerpo { display: flex; flex: 1; min-height: 0; }
+.espaciador { flex: 1; }
+
+/* ---- barra superior ---- */
+.barra {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--borde);
+}
+.logo { font-size: 15px; letter-spacing: 1px; margin-right: 8px; user-select: none; }
+.logo b { color: var(--verde); }
+
+button {
+  background: #1f1f1f; color: var(--texto);
+  border: 1px solid var(--borde); border-radius: 6px;
+  padding: 6px 12px; cursor: pointer; font-size: 13px;
+}
+button:hover:not(:disabled) { border-color: var(--verde); color: var(--verde); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.principal {
+  background: var(--verde); color: #061104; font-weight: 600; border: none;
+}
+button.principal:hover:not(:disabled) { background: #2ecc0e; color: #061104; }
+button.exportar { border-color: var(--verde); color: var(--verde); }
+
+.info-archivo { color: var(--tenue); display: flex; align-items: center; gap: 8px; }
+.epsg {
+  background: rgba(57, 255, 20, 0.12); color: var(--verde);
+  border: 1px solid rgba(57, 255, 20, 0.4);
+  border-radius: 10px; padding: 1px 8px; font-size: 12px;
+}
+.epsg.neutro { background: #222; color: var(--tenue); border-color: var(--borde); }
+
+/* ---- panel de capas ---- */
+.panel-capas {
+  width: 230px; background: var(--panel);
+  border-right: 1px solid var(--borde);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.panel-capas.vacio {
+  align-items: center; justify-content: center; color: var(--tenue);
+}
+.panel-capas header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px; border-bottom: 1px solid var(--borde);
+  font-weight: 600; color: var(--verde);
+}
+.panel-capas header .acciones button { padding: 2px 7px; font-size: 11px; margin-left: 4px; }
+.panel-capas ul { list-style: none; overflow-y: auto; flex: 1; }
+.panel-capas li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; cursor: pointer; user-select: none;
+}
+.panel-capas li:hover { background: #1d1d1d; }
+.panel-capas li.oculta .nombre { color: #555; text-decoration: line-through; }
+.panel-capas .muestra {
+  width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+  border: 1px solid #333;
+}
+.panel-capas .nombre {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.panel-capas input[type='checkbox'] { accent-color: var(--verde); }
+
+/* ---- visor ---- */
+.zona-visor { flex: 1; position: relative; min-width: 0; }
+canvas.visor { width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+.bienvenida {
+  height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px; text-align: center;
+}
+.bienvenida h1 { font-size: 42px; letter-spacing: 3px; font-weight: 300; }
+.bienvenida h1 b { color: var(--verde); font-weight: 700; }
+.bienvenida p { color: var(--tenue); max-width: 460px; }
+.bienvenida .nota { font-size: 12px; }
+
+/* ---- barra de estado ---- */
+.estado {
+  display: flex; align-items: center; gap: 16px;
+  padding: 5px 12px;
+  background: var(--panel); border-top: 1px solid var(--borde);
+  color: var(--tenue); font-size: 12px; white-space: nowrap; overflow: hidden;
+}
+.estado .coordenadas { font-family: Consolas, monospace; color: var(--texto); min-width: 240px; }
+.estado .seleccion { color: var(--verde); }
+.estado .mensaje { color: var(--texto); }
+.estado .motor.ok { color: var(--tenue); }
+.estado .motor.falta { color: #ffb347; }

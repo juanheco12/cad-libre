@@ -1,0 +1,82 @@
+# CAD LIBRE
+
+Aplicación de escritorio para Windows 10/11 que **abre archivos DWG, los
+visualiza (zoom, pan, selección, capas) y los exporta a DXF conservando
+exactamente toda la información geoespacial**: coordenadas X/Y/Z originales,
+sistema de coordenadas (CRS/EPSG), capas, bloques, textos, polilíneas y cotas.
+
+## Garantía de fidelidad
+
+- La conversión DWG→DXF la hace **ODA File Converter** (el mismo motor que usa
+  QGIS): es una traducción 1:1 del contenido, sin mover, escalar ni rotar nada.
+- La app **nunca reescribe el DXF convertido**: la exportación es una copia
+  binaria exacta de ese resultado.
+- La versión DXF de salida es siempre R2010+ (por defecto R2018), porque el
+  objeto **GEODATA** —la georreferenciación embebida— solo existe desde R2010.
+- Junto al DXF se generan automáticamente:
+  - `<nombre>.prj` — WKT ESRI del CRS detectado. **ArcGIS lo asocia solo** al
+    DXF del mismo nombre.
+  - `<nombre>.georref.txt` / `.json` — EPSG detectado e instrucciones para
+    asignar el SRC en QGIS (p. ej. `EPSG:9377` MAGNA-SIRGAS Origen Nacional).
+
+## Arquitectura
+
+```
+CAD LIBRE/
+├── app/                  # Interfaz: Electron + React + TypeScript (electron-vite)
+│   └── src/
+│       ├── main/         # Proceso principal (ventana, diálogos, IPC, spawn de Python)
+│       ├── preload/      # Puente seguro renderer ↔ main
+│       └── renderer/src/ # React: Visor (canvas 2D), PanelCapas, barras
+├── cadlibre/             # Motor Python
+│   ├── converter.py      # DWG→DXF vía ODA File Converter o dwg2dxf (LibreDWG)
+│   ├── geodata.py        # Lectura GEODATA/EPSG, generación .prj y metadatos
+│   ├── render_json.py    # Geometría del visor (aplanado de curvas, bloques, cotas)
+│   ├── verify.py         # Inventario: capas, bloques, entidades, extensión
+│   ├── bridge.py         # CLI JSON que consume Electron (abrir/exportar/motor)
+│   ├── pipeline.py       # Orquestación para uso por consola
+│   └── gui.py            # GUI alternativa en Tkinter (respaldo sin Node)
+└── tests/                # crear_dxf_prueba.py: predio georreferenciado EPSG:9377
+```
+
+El visor compila la geometría a objetos `Path2D` agrupados por capa+color y
+solo re-traza con la transformación de cámara en cada cuadro: los dibujos
+grandes se manejan con poca memoria y el JSON del motor se escribe en
+streaming.
+
+## Requisitos
+
+1. **Node.js 18+** y **Python 3.10+**.
+2. **ODA File Converter** (gratuito) para abrir DWG:
+   <https://www.opendesign.com/guestfiles/oda_file_converter>
+   — sin él, la app igualmente abre y exporta DXF. Se detecta solo en
+   `C:\Program Files\ODA\`.
+
+## Desarrollo
+
+```powershell
+# Motor Python (una vez)
+uv venv .venv
+uv pip install --python .venv -r requirements.txt
+
+# Interfaz
+cd app
+npm install
+npm run dev        # arranca Electron con recarga
+```
+
+## Compilar instalador
+
+```powershell
+cd app
+npm run dist       # genera el instalador NSIS en app/dist/
+```
+
+## Uso por consola (sin interfaz)
+
+```powershell
+.venv\Scripts\python.exe -m cadlibre plano.dwg -o carpeta_salida
+```
+
+Convierte, genera `.prj` + metadatos e imprime el inventario (capas, bloques,
+entidades y extensión espacial) para verificar que nada se perdió.
