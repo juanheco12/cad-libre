@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- Fondo: rojo profundo en las esquinas superiores, encendido hacia abajo -->
+    <linearGradient id="fondo" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0%"   stop-color="#7d0000"/>
+      <stop offset="45%"  stop-color="#a80505"/>
+      <stop offset="100%" stop-color="#d40b0b"/>
+    </linearGradient>
+
+    <!-- Placa isométrica inferior, claramente más encendida que el fondo -->
+    <linearGradient id="placa" x1="0" y1="0" x2="0.15" y2="1">
+      <stop offset="0%"   stop-color="#f21c1c"/>
+      <stop offset="100%" stop-color="#ff3a3a"/>
+    </linearGradient>
+
+    <!-- Bisel diagonal que cruza hacia la esquina superior derecha -->
+    <linearGradient id="bisel" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#ff4545" stop-opacity="0.38"/>
+      <stop offset="100%" stop-color="#ff4545" stop-opacity="0"/>
+    </linearGradient>
+
+    <clipPath id="marco">
+      <rect x="0" y="0" width="512" height="512" rx="72" ry="72"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#marco)">
+    <rect x="0" y="0" width="512" height="512" fill="url(#fondo)"/>
+
+    <!-- Cara superior del prisma, insinuada hacia la esquina derecha -->
+    <path d="M 256 330 L 512 262 L 512 386 L 256 330 Z" fill="url(#bisel)"/>
+
+    <!-- Placa isométrica: el "plano" en perspectiva, sangra por los bordes -->
+    <path d="M 256 322 L 584 432 L 256 592 L -72 432 Z" fill="url(#placa)"/>
+
+    <!-- Arista izquierda, un punto más clara para dar volumen -->
+    <path d="M 256 322 L -72 432 L 256 592 Z" fill="#ff5c5c" opacity="0.18"/>
+
+    <text x="256" y="288"
+          font-family="Segoe UI, Helvetica Neue, Arial, sans-serif"
+          font-size="190" font-weight="600" letter-spacing="2"
+          fill="#ffffff" text-anchor="middle">CAD</text>
+  </g>
+</svg>

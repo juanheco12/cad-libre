@@ -1,6 +1,6 @@
 /** Proceso principal de Electron: ventana, diálogos e IPC hacia el motor Python. */
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { iniciarActualizador } from './actualizador';
@@ -11,6 +11,15 @@ let workdir: string | null = null;
 /** Ruta del DXF 1:1 producido al abrir el DWG actual (fuente de la exportación). */
 let dxfActual: string | null = null;
 
+/**
+ * Icono de la ventana. En la app instalada Windows usa el del .exe; esto
+ * cubre el modo desarrollo, donde no hay ejecutable propio.
+ */
+function iconoVentana(): string | undefined {
+  const ruta = path.resolve(__dirname, '..', '..', 'build', 'icon.png');
+  return existsSync(ruta) ? ruta : undefined;
+}
+
 function crearVentana(): void {
   ventana = new BrowserWindow({
     width: 1280,
@@ -19,6 +28,7 @@ function crearVentana(): void {
     minHeight: 600,
     backgroundColor: '#0d0d0d',
     title: 'CAD LIBRE',
+    icon: iconoVentana(),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,

@@ -15,7 +15,8 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "dist": "electron-vite build && electron-builder --win",
-    "release": "electron-vite build && electron-builder --win --publish always"
+    "release": "electron-vite build && electron-builder --win --publish always",
+    "icono": "electron scripts/generar-icono.js"
   },
   "dependencies": {
     "electron-updater": "^6.3.9",
@@ -30,6 +31,7 @@
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
+    "png-to-ico": "^3.0.2",
     "typescript": "^5.6.3",
     "vite": "^5.4.11"
   },
@@ -37,10 +39,13 @@
     "appId": "com.juanhernandez.cadlibre",
     "productName": "CAD LIBRE",
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -49,6 +54,8 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "shortcutName": "CAD LIBRE",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
       "artifactName": "CAD-LIBRE-Setup-${version}.exe"
     },
     "publish": [
