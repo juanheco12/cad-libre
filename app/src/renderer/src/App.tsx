@@ -8,13 +8,15 @@ import PanelCapas from './components/PanelCapas';
 import Visor from './components/Visor';
 import { TEMAS, guardarTema, leerTemaGuardado, type NombreTema } from './lib/tema';
 import type {
-  Documento, InfoActualizacion, OpcionesExportar, ResumenFiltrado, Seleccion
+  Documento, InfoActualizacion, OpcionesExportar, ResumenFiltrado, ResumenShp, Seleccion
 } from './lib/tipos';
 
 export default function App() {
   const [documento, setDocumento] = useState<Documento | null>(null);
   const [capasVisibles, setCapasVisibles] = useState<Record<string, boolean>>({});
   const [seleccion, setSeleccion] = useState<Seleccion | null>(null);
+  /** Entidades elegidas a mano para exportar (handles del DXF). */
+  const [elegidos, setElegidos] = useState<Set<string>>(new Set());
   const [cursor, setCursor] = useState<[number, number] | null>(null);
   const [motor, setMotor] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -56,6 +58,7 @@ export default function App() {
       for (const capa of doc.geometria.capas) visibles[capa.nombre] = capa.visible;
       setCapasVisibles(visibles);
       setSeleccion(null);
+      setElegidos(new Set());
       setArea(null);
       setModoArea(false);
       setAjustarSenal((n) => n + 1);
@@ -77,6 +80,7 @@ export default function App() {
     setDocumento(null);
     setCapasVisibles({});
     setSeleccion(null);
+    setElegidos(new Set());
     setArea(null);
     setModoArea(false);
     setCursor(null);
@@ -94,15 +98,41 @@ export default function App() {
         setMensaje(String(r.error ?? 'Error al exportar'));
         return;
       }
-      const filtrado = r.filtrado as ResumenFiltrado | null;
-      const base = filtrado
-        ? `DXF exportado: ${filtrado.conservadas} entidades conservadas, ` +
-          `${filtrado.eliminadas} excluidas`
-        : 'DXF exportado completo sin modificar el dibujo';
-      setMensaje(base + (r.epsg ? ` · EPSG:${r.epsg} en .prj y metadatos` : ''));
+      let base: string;
+      if (r.formato === 'shp') {
+        const shp = r.resumenShp as ResumenShp;
+        const partes = [
+          shp.poligonos ? `${shp.poligonos} polígonos` : '',
+          shp.lineas ? `${shp.lineas} líneas` : '',
+          shp.puntos ? `${shp.puntos} puntos` : '',
+          shp.textos ? `${shp.textos} textos` : ''
+        ].filter(Boolean);
+        base = partes.length
+          ? `Shapefile exportado: ${partes.join(', ')}`
+          : 'No había nada que exportar con ese filtro';
+      } else {
+        const filtrado = r.filtrado as ResumenFiltrado | null;
+        base = filtrado
+          ? `DXF exportado: ${filtrado.conservadas} entidades conservadas, ` +
+            `${filtrado.eliminadas} excluidas`
+          : 'DXF exportado completo sin modificar el dibujo';
+      }
+      setMensaje(base + (r.epsg ? ` · EPSG:${r.epsg} en .prj` : ''));
     } finally {
       setOcupado(false);
     }
+  }, []);
+
+  /** Clic en una entidad: acumula con Ctrl/Shift, reemplaza sin ellos. */
+  const elegir = useCallback((handle: string, acumular: boolean) => {
+    setElegidos((prev) => {
+      if (!handle) return acumular ? prev : new Set<string>();
+      if (!acumular) return new Set([handle]);
+      const nuevo = new Set(prev);
+      if (nuevo.has(handle)) nuevo.delete(handle);
+      else nuevo.add(handle);
+      return nuevo;
+    });
   }, []);
 
   const cambiarCapa = useCallback((nombre: string, visible: boolean) => {
@@ -124,6 +154,8 @@ export default function App() {
         ocupado={ocupado}
         modoArea={modoArea}
         hayArea={area !== null}
+        elegidas={elegidos.size}
+        onLimpiarSeleccion={() => setElegidos(new Set())}
         tema={tema}
         onAbrir={abrir}
         onCerrar={cerrar}
@@ -154,6 +186,8 @@ export default function App() {
                 modoArea={modoArea}
                 area={area}
                 onArea={(a) => { setArea(a); if (a) setModoArea(false); }}
+                elegidos={elegidos}
+                onElegir={elegir}
               />
               {modoArea && (
                 <div className="pista-area">
@@ -189,6 +223,7 @@ export default function App() {
           documento={documento}
           capasVisibles={capasVisibles}
           area={area}
+          elegidos={elegidos}
           onCancelar={() => setDialogoExportar(false)}
           onExportar={exportar}
         />

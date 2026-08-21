@@ -77,12 +77,25 @@ export interface Seleccion {
 
 /** Filtros de la exportación selectiva; vacío = todo el dibujo (copia 1:1). */
 export interface OpcionesExportar {
+  /** dxf conserva el archivo tal cual; shp genera capas para QGIS/ArcGIS. */
+  formato?: 'dxf' | 'shp';
   /** Capas a conservar; undefined = todas. */
   capas?: string[];
   /** Contorno cerrado [[x, y], …] en coordenadas del dibujo. */
   poligono?: [number, number][];
   /** contenida = solo lo totalmente dentro; intersecta = también lo que toca. */
   modoArea?: 'contenida' | 'intersecta';
+  /** Handles de las entidades elegidas una a una; manda sobre los demás filtros. */
+  handles?: string[];
+}
+
+export interface ResumenShp {
+  poligonos: number;
+  lineas: number;
+  puntos: number;
+  textos: number;
+  omitidas: number;
+  total: number;
 }
 
 export interface ResumenFiltrado {

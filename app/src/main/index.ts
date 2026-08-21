@@ -105,29 +105,41 @@ ipcMain.handle('archivo:abrir', async () => {
 });
 
 interface OpcionesExportar {
+  formato?: 'dxf' | 'shp';
   capas?: string[];
   poligono?: [number, number][];
   modoArea?: 'contenida' | 'intersecta';
+  handles?: string[];
 }
 
 ipcMain.handle('archivo:exportar', async (_ev, opciones?: OpcionesExportar) => {
   if (!dxfActual) return { ok: false, error: 'No hay ningún dibujo abierto.' };
-  const nombre = path.basename(dxfActual);
+  const esShp = opciones?.formato === 'shp';
+  const base = path.basename(dxfActual, path.extname(dxfActual));
   const seleccion = await dialog.showSaveDialog(ventana!, {
-    title: 'Exportar DXF georreferenciado',
-    defaultPath: nombre,
-    filters: [{ name: 'DXF', extensions: ['dxf'] }]
+    title: esShp ? 'Exportar shapefiles georreferenciados' : 'Exportar DXF georreferenciado',
+    // En SHP el nombre elegido es la BASE: el motor añade _lineas, _poligonos…
+    defaultPath: esShp ? base : base + '.dxf',
+    filters: esShp
+      ? [{ name: 'Shapefile', extensions: ['shp'] }]
+      : [{ name: 'DXF', extensions: ['dxf'] }]
   });
   if (seleccion.canceled || !seleccion.filePath) return { ok: false, cancelado: true };
 
   const args = ['exportar', dxfActual, seleccion.filePath];
+  if (opciones?.formato) args.push('--formato', opciones.formato);
   if (opciones?.capas) args.push('--capas', JSON.stringify(opciones.capas));
   if (opciones?.poligono) args.push('--poligono', JSON.stringify(opciones.poligono));
   if (opciones?.modoArea) args.push('--modo-area', opciones.modoArea);
+  if (opciones?.handles) args.push('--handles', JSON.stringify(opciones.handles));
 
   const respuesta = await ejecutarBridge(args);
   if (respuesta.ok) {
-    shell.showItemInFolder(seleccion.filePath);
+    // En SHP se abre la carpeta: son varios archivos, no uno solo.
+    const aMostrar = esShp
+      ? ((respuesta.archivos as string[] | undefined)?.[0] ?? seleccion.filePath)
+      : seleccion.filePath;
+    shell.showItemInFolder(aMostrar);
   }
   return respuesta;
 });

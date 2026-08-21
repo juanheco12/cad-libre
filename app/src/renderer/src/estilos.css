@@ -225,3 +225,33 @@ canvas.visor.marcando-area, canvas.visor.marcando-area:active { cursor: crosshai
 .estado .mensaje { color: var(--texto); }
 .estado .motor.ok { color: var(--tenue); }
 .estado .motor.falta { color: #ffb347; }
+
+/* ---- selección de entidades y formato de exportación ---- */
+button.seleccion-activa {
+  background: rgba(0, 208, 255, 0.15);
+  border-color: #00d0ff; color: #00d0ff;
+}
+button.seleccion-activa:hover:not(:disabled) { border-color: #00d0ff; color: #00d0ff; }
+
+.etiqueta-grupo {
+  color: var(--tenue); font-size: 11px; text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.grupo-formato { display: flex; flex-direction: column; gap: 6px; }
+.botones-formato { display: flex; gap: 8px; }
+.botones-formato button {
+  flex: 1; display: flex; flex-direction: column; align-items: flex-start;
+  gap: 2px; padding: 10px 12px;
+}
+.botones-formato button small { color: var(--tenue); font-size: 11px; }
+.botones-formato button.activo {
+  border-color: var(--verde); color: var(--verde);
+  background: rgba(57, 255, 20, 0.12);
+}
+.botones-formato button.activo small { color: var(--verde); opacity: 0.8; }
+
+.dialogo .contador {
+  display: inline-block; margin-left: 6px; padding: 0 7px;
+  background: #00d0ff; color: #04212b; border-radius: 9px;
+  font-size: 11px; font-weight: 700;
+}

@@ -11,8 +11,13 @@ sistema de coordenadas (CRS/EPSG), capas, bloques, textos, polilíneas y cotas.
 - **Temas**: fondo oscuro, blanco, gris claro o azul noche. Sobre fondo claro,
   los colores luminosos del DXF (blanco, amarillo) se oscurecen *al pintarlos*
   para que sigan siendo legibles; el archivo nunca se modifica.
-- **Exportación selectiva**: todo el dibujo, o solo las capas visibles y/o un
-  contorno dibujado a mano alzada sobre el plano.
+- **Selección de entidades como en AutoCAD**: clic sobre una línea o polilínea
+  para elegirla, Ctrl+clic para añadir más. Exporta exactamente eso, sin
+  arrastrar las cotas ni los textos que caen alrededor.
+- **Exportación selectiva**: todo el dibujo, o las entidades seleccionadas, o
+  las capas visibles y/o un contorno dibujado a mano alzada.
+- **Salida a Shapefile** además de DXF: genera `_poligonos`, `_lineas`,
+  `_puntos` y `_textos`, cada uno con su `.prj`, listos para QGIS y ArcGIS.
 - **Actualización automática** desde GitHub Releases.
 
 ## Garantía de fidelidad
@@ -45,6 +50,9 @@ CAD LIBRE/
 │   ├── converter.py      # DWG→DXF vía ODA File Converter o dwg2dxf (LibreDWG)
 │   ├── geodata.py        # Lectura GEODATA/EPSG, generación .prj y metadatos
 │   ├── render_json.py    # Geometría del visor (aplanado de curvas, bloques, cotas)
+│   ├── filtro.py         # Exportación selectiva por capas, contorno o selección
+│   ├── shp.py            # Exportación a shapefile (polígonos/líneas/puntos/textos)
+│   ├── geometria2d.py    # Punto-en-polígono para el contorno libre
 │   ├── verify.py         # Inventario: capas, bloques, entidades, extensión
 │   ├── bridge.py         # CLI JSON que consume Electron (abrir/exportar/motor)
 │   ├── pipeline.py       # Orquestación para uso por consola

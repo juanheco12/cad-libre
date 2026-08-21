@@ -1,4 +1,4 @@
-/** Diálogo de exportación: todo el dibujo o solo una selección. */
+/** Diálogo de exportación: formato de salida y qué parte del dibujo. */
 import { useMemo, useState } from 'react';
 import type { Documento, OpcionesExportar } from '../lib/tipos';
 
@@ -6,76 +6,113 @@ interface Props {
   documento: Documento;
   capasVisibles: Record<string, boolean>;
   area: [number, number][] | null;
+  elegidos: Set<string>;
   onCancelar: () => void;
   onExportar: (opciones: OpcionesExportar) => void;
 }
 
+type Alcance = 'todo' | 'seleccion' | 'filtros';
+
 export default function DialogoExportar({
-  documento, capasVisibles, area, onCancelar, onExportar
+  documento, capasVisibles, area, elegidos, onCancelar, onExportar
 }: Props) {
   const capas = documento.geometria.capas;
   const ocultas = useMemo(
     () => capas.filter((c) => capasVisibles[c.nombre] === false).map((c) => c.nombre),
     [capas, capasVisibles]
   );
-  const hayFiltroPosible = ocultas.length > 0 || area !== null;
+  const hayElegidas = elegidos.size > 0;
+  const hayFiltros = ocultas.length > 0 || area !== null;
 
-  const [alcance, setAlcance] = useState<'todo' | 'seleccion'>(
-    hayFiltroPosible ? 'seleccion' : 'todo'
+  const [formato, setFormato] = useState<'dxf' | 'shp'>('dxf');
+  const [alcance, setAlcance] = useState<Alcance>(
+    hayElegidas ? 'seleccion' : hayFiltros ? 'filtros' : 'todo'
   );
   const [usarCapas, setUsarCapas] = useState(ocultas.length > 0);
   const [usarArea, setUsarArea] = useState(area !== null);
   const [modoArea, setModoArea] = useState<'contenida' | 'intersecta'>('intersecta');
 
   const exportar = () => {
-    if (alcance === 'todo' || (!usarCapas && !usarArea)) {
-      onExportar({});
-      return;
+    const opciones: OpcionesExportar = { formato };
+    if (alcance === 'seleccion' && hayElegidas) {
+      opciones.handles = [...elegidos];
+    } else if (alcance === 'filtros') {
+      if (usarCapas && ocultas.length > 0) {
+        opciones.capas = capas
+          .filter((c) => capasVisibles[c.nombre] !== false)
+          .map((c) => c.nombre);
+      }
+      if (usarArea && area) {
+        opciones.poligono = area;
+        opciones.modoArea = modoArea;
+      }
     }
-    onExportar({
-      capas: usarCapas
-        ? capas.filter((c) => capasVisibles[c.nombre] !== false).map((c) => c.nombre)
-        : undefined,
-      poligono: usarArea && area ? area : undefined,
-      modoArea
-    });
+    onExportar(opciones);
   };
 
   return (
     <div className="velo" onClick={onCancelar}>
       <div className="dialogo" onClick={(ev) => ev.stopPropagation()}>
-        <h2>Exportar a DXF</h2>
+        <h2>Exportar</h2>
 
-        <label className="opcion">
-          <input
-            type="radio" name="alcance" checked={alcance === 'todo'}
-            onChange={() => setAlcance('todo')}
-          />
-          <div>
-            <strong>Todo el dibujo</strong>
-            <small>
-              Copia 1:1 exacta del DWG convertido: ninguna entidad se toca.
-            </small>
+        <div className="grupo-formato">
+          <span className="etiqueta-grupo">Formato</span>
+          <div className="botones-formato">
+            <button
+              className={formato === 'dxf' ? 'activo' : ''}
+              onClick={() => setFormato('dxf')}
+            >
+              DXF
+              <small>Dibujo CAD fiel</small>
+            </button>
+            <button
+              className={formato === 'shp' ? 'activo' : ''}
+              onClick={() => setFormato('shp')}
+            >
+              Shapefile
+              <small>Capas SIG para QGIS</small>
+            </button>
           </div>
-        </label>
+        </div>
 
-        <label className={`opcion${hayFiltroPosible ? '' : ' deshabilitada'}`}>
+        <span className="etiqueta-grupo">Qué exportar</span>
+
+        <label className={`opcion${hayElegidas ? '' : ' deshabilitada'}`}>
           <input
             type="radio" name="alcance" checked={alcance === 'seleccion'}
-            disabled={!hayFiltroPosible}
+            disabled={!hayElegidas}
             onChange={() => setAlcance('seleccion')}
           />
           <div>
-            <strong>Solo la selección</strong>
+            <strong>
+              Solo lo seleccionado
+              {hayElegidas && <span className="contador">{elegidos.size}</span>}
+            </strong>
             <small>
-              {hayFiltroPosible
-                ? 'Exporta únicamente lo elegido. Lo exportado conserva sus coordenadas y georreferencia exactas.'
-                : 'Para habilitarlo: oculte capas en el panel izquierdo o dibuje un contorno con el botón «✎ Marcar área».'}
+              {hayElegidas
+                ? 'Exactamente las entidades que marcó con clic: ni cotas ni nada más.'
+                : 'Haga clic sobre las líneas en el plano (Ctrl+clic para añadir más).'}
             </small>
           </div>
         </label>
 
-        {alcance === 'seleccion' && hayFiltroPosible && (
+        <label className={`opcion${hayFiltros ? '' : ' deshabilitada'}`}>
+          <input
+            type="radio" name="alcance" checked={alcance === 'filtros'}
+            disabled={!hayFiltros}
+            onChange={() => setAlcance('filtros')}
+          />
+          <div>
+            <strong>Por capas y área</strong>
+            <small>
+              {hayFiltros
+                ? 'Lo que quede tras ocultar capas y marcar un contorno.'
+                : 'Oculte capas en el panel izquierdo o dibuje un contorno con «✎ Marcar área».'}
+            </small>
+          </div>
+        </label>
+
+        {alcance === 'filtros' && hayFiltros && (
           <div className="sub-opciones">
             <label className={ocultas.length === 0 ? 'deshabilitada' : ''}>
               <input
@@ -84,7 +121,7 @@ export default function DialogoExportar({
               />
               Solo capas visibles
               {ocultas.length > 0 && (
-                <small> — se excluyen {ocultas.length} de {capas.length} capas</small>
+                <small> — se excluyen {ocultas.length} de {capas.length}</small>
               )}
             </label>
             <label className={area ? '' : 'deshabilitada'}>
@@ -93,7 +130,6 @@ export default function DialogoExportar({
                 onChange={(ev) => setUsarArea(ev.target.checked)}
               />
               Solo el área marcada
-              {!area && <small> — no hay área marcada en el visor</small>}
             </label>
             {usarArea && area && (
               <div className="modo-area">
@@ -116,15 +152,35 @@ export default function DialogoExportar({
           </div>
         )}
 
+        <label className="opcion">
+          <input
+            type="radio" name="alcance" checked={alcance === 'todo'}
+            onChange={() => setAlcance('todo')}
+          />
+          <div>
+            <strong>Todo el dibujo</strong>
+            <small>
+              {formato === 'dxf'
+                ? 'Copia 1:1 exacta: ninguna entidad se toca.'
+                : 'Todas las entidades del plano, repartidas por tipo de geometría.'}
+            </small>
+          </div>
+        </label>
+
         <p className="nota-georref">
-          La georreferenciación (EPSG{documento.georref.epsg ? `:${documento.georref.epsg}` : ''})
-          y las coordenadas originales se conservan en cualquiera de las dos opciones;
-          junto al DXF se generan el .prj y los metadatos.
+          {formato === 'shp'
+            ? 'Se generan hasta cuatro archivos (polígonos, líneas, puntos y textos), ' +
+              'cada uno con su .prj. Las coordenadas son las originales del plano.'
+            : 'Las coordenadas y la georreferenciación se conservan intactas; ' +
+              'junto al DXF se generan el .prj y los metadatos.'}
+          {documento.georref.epsg ? ` EPSG:${documento.georref.epsg}.` : ''}
         </p>
 
         <div className="acciones-dialogo">
           <button onClick={onCancelar}>Cancelar</button>
-          <button className="principal" onClick={exportar}>⬇ Exportar</button>
+          <button className="principal" onClick={exportar}>
+            ⬇ Exportar {formato === 'shp' ? 'Shapefile' : 'DXF'}
+          </button>
         </div>
       </div>
     </div>

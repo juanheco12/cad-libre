@@ -84,17 +84,22 @@ def exportar_filtrado(
     capas: list[str] | None = None,
     area=None,
     modo_area: str = "contenida",
+    handles: list[str] | None = None,
 ) -> ResultadoFiltro:
     """Escribe en `destino` el DXF con solo las entidades que pasan el filtro.
 
-    capas: nombres de las capas a conservar (None = todas).
-    area:  rectángulo [x1,y1,x2,y2] o polígono [[x,y], …] en coordenadas del
-           dibujo (None = todo el plano).
+    capas:   nombres de las capas a conservar (None = todas).
+    area:    rectángulo [x1,y1,x2,y2] o polígono [[x,y], …] en coordenadas del
+             dibujo (None = todo el plano).
+    handles: identificadores de las entidades elegidas una a una en el visor
+             (None = no se filtra por selección). Es el filtro más preciso:
+             exporta exactamente esas entidades y nada más.
     """
     if modo_area not in MODOS_AREA:
         raise ValueError(f"Modo de área no válido: {modo_area}")
     poligono = normalizar_area(area)
-    if capas is None and poligono is None:
+    elegidos = {h.upper() for h in handles} if handles else None
+    if capas is None and poligono is None and elegidos is None:
         raise ValueError("Sin filtro no debe usarse esta ruta: copie el DXF tal cual.")
 
     doc = ezdxf.readfile(origen)
@@ -104,6 +109,15 @@ def exportar_filtrado(
 
     a_eliminar = []
     for entidad in msp:
+        if elegidos is not None:
+            # La selección manual es explícita: lo que no se eligió, se va,
+            # sin consultar capa ni área.
+            handle = entidad.dxf.get("handle", "") or ""
+            if handle.upper() not in elegidos:
+                a_eliminar.append(entidad)
+                continue
+            resultado.conservadas += 1
+            continue
         if permitidas is not None:
             try:
                 if entidad.dxf.layer not in permitidas:

@@ -24,6 +24,7 @@ import traceback
 
 from .converter import VERSION_SALIDA_DEFECTO, convertir_dwg_a_dxf, detectar_motor
 from .filtro import exportar_filtrado
+from .shp import exportar_shp
 from .geodata import escribir_sidecars, leer_georreferenciacion
 from .render_json import extraer_geometria
 from .verify import inventariar
@@ -92,6 +93,7 @@ def cmd_exportar(args):
     os.makedirs(os.path.dirname(destino), exist_ok=True)
 
     capas = json.loads(args.capas) if args.capas else None
+    handles = json.loads(args.handles) if args.handles else None
     area = None
     if args.poligono:
         area = json.loads(args.poligono)  # [[x, y], …] contorno libre
@@ -101,11 +103,37 @@ def cmd_exportar(args):
             _fallar("El área debe ser x1,y1,x2,y2")
         area = list(partes)
 
+    # La georreferenciación se lee del ORIGEN: el filtrado la conserva, pero
+    # el formato SHP no la lleva dentro y necesita el WKT para su .prj.
+    info_origen = leer_georreferenciacion(origen)
+
+    if args.formato == "shp":
+        base = os.path.splitext(destino)[0]
+        r = exportar_shp(
+            origen, base, info_origen.wkt_esri, capas, area, args.modo_area, handles
+        )
+        _responder({
+            "ok": True,
+            "formato": "shp",
+            "base": base,
+            "archivos": r.archivos,
+            "epsg": info_origen.epsg,
+            "nombreCrs": info_origen.nombre_crs,
+            "resumenShp": {
+                "poligonos": r.poligonos,
+                "lineas": r.lineas,
+                "puntos": r.puntos,
+                "textos": r.textos,
+                "omitidas": r.omitidas,
+                "total": r.total,
+            },
+        })
+
     filtrado = None
-    if capas is not None or area is not None:
+    if capas is not None or area is not None or handles is not None:
         # Exportación selectiva: se eliminan del DXF las entidades que no
         # pasan el filtro; lo conservado queda idéntico al original.
-        r = exportar_filtrado(origen, destino, capas, area, args.modo_area)
+        r = exportar_filtrado(origen, destino, capas, area, args.modo_area, handles)
         filtrado = {
             "conservadas": r.conservadas,
             "eliminadas": r.eliminadas,
@@ -119,6 +147,7 @@ def cmd_exportar(args):
     laterales = escribir_sidecars(destino, info)
     _responder({
         "ok": True,
+        "formato": "dxf",
         "dxf": destino,
         "laterales": laterales,
         "epsg": info.epsg,
@@ -153,6 +182,11 @@ def main():
     p.add_argument("--capas", help="JSON con la lista de capas a conservar")
     p.add_argument("--area", help="Rectángulo x1,y1,x2,y2 en coordenadas del dibujo")
     p.add_argument("--poligono", help="JSON [[x,y], …] con el contorno libre dibujado")
+    p.add_argument("--handles", help="JSON con los handles de las entidades elegidas")
+    p.add_argument(
+        "--formato", default="dxf", choices=["dxf", "shp"],
+        help="dxf: copia fiel; shp: shapefiles para QGIS/ArcGIS",
+    )
     p.add_argument(
         "--modo-area", default="contenida", choices=["contenida", "intersecta"],
         help="contenida: solo lo totalmente dentro; intersecta: también lo que toca el borde",

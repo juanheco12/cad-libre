@@ -20,6 +20,10 @@ interface Props {
   capasVisibles: Record<string, boolean>;
   seleccion: Seleccion | null;
   onSeleccion: (s: Seleccion | null) => void;
+  /** Handles de las entidades elegidas para exportar. */
+  elegidos: Set<string>;
+  /** Alterna una entidad en la selección (clic) o la deja como única (sin acumular). */
+  onElegir: (handle: string, acumular: boolean) => void;
   onCursor: (x: number, y: number) => void;
   ajustarSenal: number; // incrementa para pedir "zoom a extensión"
   tema: Tema;
@@ -43,13 +47,14 @@ interface GrupoTrazo {
 }
 
 const COLOR_SELECCION = '#39ff14';
+const COLOR_ELEGIDA = '#00d0ff';
 const COLOR_AREA = '#ff8c00';
 /** Separación mínima en píxeles entre puntos del trazo libre. */
 const PASO_TRAZO = 4;
 
 export default function Visor({
   geometria, capasVisibles, seleccion, onSeleccion, onCursor, ajustarSenal,
-  tema, modoArea, area, onArea
+  tema, modoArea, area, onArea, elegidos, onElegir
 }: Props) {
   const refLienzo = useRef<HTMLCanvasElement>(null);
   const refCamara = useRef<Camara>({ escala: 1, cx: 0, cy: 0 });
@@ -199,6 +204,39 @@ export default function Visor({
       ctx.restore();
     }
 
+    // entidades elegidas para exportar: trazo grueso en cian
+    if (elegidos.size > 0) {
+      ctx.save();
+      aPantalla();
+      ctx.lineWidth = 3 / escala;
+      ctx.strokeStyle = COLOR_ELEGIDA;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      for (const e of geometria.entidades) {
+        if (!elegidos.has(e.h) || !('p' in e)) continue;
+        for (const linea of (e as EntidadPolilinea).p) {
+          ctx.beginPath();
+          ctx.moveTo(linea[0], linea[1]);
+          for (let i = 2; i < linea.length; i += 2) ctx.lineTo(linea[i], linea[i + 1]);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+      // Marca los textos y puntos elegidos, que no tienen trazo que engrosar
+      const radio = 5;
+      for (const e of geometria.entidades) {
+        if (!elegidos.has(e.h) || 'p' in e) continue;
+        const p = e as unknown as { x: number; y: number };
+        const sx = ancho / 2 + (p.x - cx) * escala;
+        const sy = alto / 2 - (p.y - cy) * escala;
+        ctx.beginPath();
+        ctx.arc(sx, sy, radio, 0, Math.PI * 2);
+        ctx.strokeStyle = COLOR_ELEGIDA;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
     // resaltado de la selección
     if (seleccion) {
       ctx.save();
@@ -216,7 +254,7 @@ export default function Visor({
       }
       ctx.restore();
     }
-  }, [geometria, grupos, textos, puntos, capasVisibles, seleccion, area, tema]);
+  }, [geometria, grupos, textos, puntos, capasVisibles, seleccion, area, tema, elegidos]);
 
   refPintar.current = pintar;
 
@@ -257,6 +295,7 @@ export default function Visor({
       }
     }
     onSeleccion(mejor ? { handle: mejor.e.h, tipo: mejor.e.t, capa: mejor.e.l } : null);
+    return mejor ? mejor.e.h : null;
   }, [geometria, capasVisibles, aMundo, onSeleccion]);
 
   // ---- eventos de ratón ---------------------------------------------------
@@ -332,9 +371,12 @@ export default function Visor({
     refArrastre.current = null;
     if (arrastre && !arrastre.movido && ev.button === 0) {
       const rect = refLienzo.current!.getBoundingClientRect();
-      seleccionar(ev.clientX - rect.left, ev.clientY - rect.top);
+      const handle = seleccionar(ev.clientX - rect.left, ev.clientY - rect.top);
+      // Ctrl o Shift acumulan; un clic limpio reemplaza la selección, igual
+      // que en AutoCAD. Clic en vacío la vacía.
+      onElegir(handle ?? '', ev.ctrlKey || ev.shiftKey);
     }
-  }, [seleccionar, terminarTrazo]);
+  }, [seleccionar, terminarTrazo, onElegir]);
 
   return (
     <canvas

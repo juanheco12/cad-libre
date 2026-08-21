@@ -7,6 +7,9 @@ interface Props {
   ocupado: boolean;
   modoArea: boolean;
   hayArea: boolean;
+  /** Cuántas entidades se han elegido con clic. */
+  elegidas: number;
+  onLimpiarSeleccion: () => void;
   tema: NombreTema;
   onAbrir: () => void;
   onCerrar: () => void;
@@ -18,8 +21,9 @@ interface Props {
 }
 
 export default function BarraHerramientas({
-  documento, ocupado, modoArea, hayArea, tema,
-  onAbrir, onCerrar, onExportar, onAjustar, onModoArea, onLimpiarArea, onTema
+  documento, ocupado, modoArea, hayArea, elegidas, tema,
+  onAbrir, onCerrar, onExportar, onAjustar, onModoArea, onLimpiarArea,
+  onLimpiarSeleccion, onTema
 }: Props) {
   const georref = documento?.georref;
   return (
@@ -44,6 +48,15 @@ export default function BarraHerramientas({
       </button>
       {hayArea && (
         <button onClick={onLimpiarArea} title="Quitar el área marcada">✕ Quitar área</button>
+      )}
+      {elegidas > 0 && (
+        <button
+          className="seleccion-activa"
+          onClick={onLimpiarSeleccion}
+          title="Vaciar la selección de entidades"
+        >
+          ✕ {elegidas} seleccionada{elegidas === 1 ? '' : 's'}
+        </button>
       )}
       <button className="exportar" onClick={onExportar} disabled={!documento || ocupado}>
         ⬇ Exportar DXF
