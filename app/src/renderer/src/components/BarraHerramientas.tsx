@@ -6,6 +6,8 @@ interface Props {
   documento: Documento | null;
   ocupado: boolean;
   modoArea: boolean;
+  formaArea: 'libre' | 'rectangulo';
+  onFormaArea: (f: 'libre' | 'rectangulo') => void;
   hayArea: boolean;
   /** Cuántas entidades se han elegido con clic. */
   elegidas: number;
@@ -21,7 +23,7 @@ interface Props {
 }
 
 export default function BarraHerramientas({
-  documento, ocupado, modoArea, hayArea, elegidas, tema,
+  documento, ocupado, modoArea, formaArea, onFormaArea, hayArea, elegidas, tema,
   onAbrir, onCerrar, onExportar, onAjustar, onModoArea, onLimpiarArea,
   onLimpiarSeleccion, onTema
 }: Props) {
@@ -38,14 +40,26 @@ export default function BarraHerramientas({
         </button>
       )}
       <button onClick={onAjustar} disabled={!documento}>⤢ Ajustar vista</button>
-      <button
-        className={modoArea ? 'activo' : ''}
-        onClick={onModoArea}
-        disabled={!documento}
-        title="Dibuje a mano alzada el contorno de lo que quiere exportar"
-      >
-        ✎ {modoArea ? 'Trazando…' : 'Marcar área'}
-      </button>
+      <span className="grupo-area">
+        <button
+          className={modoArea ? 'activo' : ''}
+          onClick={onModoArea}
+          disabled={!documento}
+          title="Marque en el plano la zona que quiere exportar"
+        >
+          {formaArea === 'libre' ? '✎' : '▭'} {modoArea ? 'Trazando…' : 'Marcar área'}
+        </button>
+        <select
+          className="forma-area"
+          value={formaArea}
+          disabled={!documento}
+          onChange={(ev) => onFormaArea(ev.target.value as 'libre' | 'rectangulo')}
+          title="Forma del contorno"
+        >
+          <option value="libre">Libre</option>
+          <option value="rectangulo">Rectángulo</option>
+        </select>
+      </span>
       {hayArea && (
         <button onClick={onLimpiarArea} title="Quitar el área marcada">✕ Quitar área</button>
       )}

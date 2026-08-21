@@ -29,6 +29,8 @@ interface Props {
   tema: Tema;
   /** Modo "marcar área de exportación": el arrastre dibuja el contorno. */
   modoArea: boolean;
+  /** Forma del contorno: a mano alzada o rectángulo. */
+  formaArea: 'libre' | 'rectangulo';
   /** Contorno cerrado en coordenadas del dibujo, o null. */
   area: [number, number][] | null;
   onArea: (a: [number, number][] | null) => void;
@@ -48,20 +50,30 @@ interface GrupoTrazo {
 
 const COLOR_SELECCION = '#39ff14';
 const COLOR_ELEGIDA = '#00d0ff';
+/** Grosor en píxeles del resaltado de lo elegido (constante a cualquier zoom). */
+const GROSOR_ELEGIDA = 4;
+/** Por debajo de este tamaño en pantalla, la entidad se marca con un recuadro. */
+const MINIMO_VISIBLE_PX = 70;
+/** Movimiento total tolerado para que un arrastre siga contando como clic. */
+const UMBRAL_CLIC_PX = 6;
 const COLOR_AREA = '#ff8c00';
 /** Separación mínima en píxeles entre puntos del trazo libre. */
 const PASO_TRAZO = 4;
 
 export default function Visor({
   geometria, capasVisibles, seleccion, onSeleccion, onCursor, ajustarSenal,
-  tema, modoArea, area, onArea, elegidos, onElegir
+  tema, modoArea, formaArea, area, onArea, elegidos, onElegir
 }: Props) {
   const refLienzo = useRef<HTMLCanvasElement>(null);
   const refCamara = useRef<Camara>({ escala: 1, cx: 0, cy: 0 });
-  const refArrastre = useRef<{ x: number; y: number; movido: boolean } | null>(null);
+  const refArrastre = useRef<
+    { x: number; y: number; movido: boolean; x0: number; y0: number } | null
+  >(null);
   const refPintar = useRef<() => void>(() => {});
   /** Contorno que se está trazando (coordenadas de mundo). */
   const refTrazo = useRef<[number, number][] | null>(null);
+  /** Esquina donde empezó el rectángulo. */
+  const refInicioArea = useRef<[number, number] | null>(null);
 
   // ---- compilación de la geometría a Path2D por (capa, color) -------------
   const grupos = useMemo<GrupoTrazo[]>(() => {
@@ -204,37 +216,73 @@ export default function Visor({
       ctx.restore();
     }
 
-    // entidades elegidas para exportar: trazo grueso en cian
+    // Entidades elegidas para exportar. Se pinta en espacio de PANTALLA para
+    // que el grosor no dependa del zoom, con un halo oscuro debajo que las
+    // hace visibles sobre cualquier fondo, y un recuadro cuando la entidad
+    // queda tan pequeña en pantalla que el trazo solo no se distinguiría.
     if (elegidos.size > 0) {
+      const aPx = (x: number, y: number): [number, number] => [
+        ancho / 2 + (x - cx) * escala,
+        alto / 2 - (y - cy) * escala
+      ];
       ctx.save();
-      aPantalla();
-      ctx.lineWidth = 3 / escala;
-      ctx.strokeStyle = COLOR_ELEGIDA;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
+
       for (const e of geometria.entidades) {
-        if (!elegidos.has(e.h) || !('p' in e)) continue;
-        for (const linea of (e as EntidadPolilinea).p) {
-          ctx.beginPath();
-          ctx.moveTo(linea[0], linea[1]);
-          for (let i = 2; i < linea.length; i += 2) ctx.lineTo(linea[i], linea[i + 1]);
-          ctx.stroke();
+        if (!elegidos.has(e.h)) continue;
+
+        if ('p' in e) {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          // Dos pasadas: halo oscuro ancho y encima el cian.
+          for (const paso of [0, 1]) {
+            ctx.strokeStyle = paso === 0 ? 'rgba(0,0,0,0.75)' : COLOR_ELEGIDA;
+            ctx.lineWidth = paso === 0 ? GROSOR_ELEGIDA + 3 : GROSOR_ELEGIDA;
+            for (const linea of (e as EntidadPolilinea).p) {
+              ctx.beginPath();
+              const [x0, y0] = aPx(linea[0], linea[1]);
+              ctx.moveTo(x0, y0);
+              if (paso === 0) {
+                minX = Math.min(minX, x0); maxX = Math.max(maxX, x0);
+                minY = Math.min(minY, y0); maxY = Math.max(maxY, y0);
+              }
+              for (let i = 2; i < linea.length; i += 2) {
+                const [px, py] = aPx(linea[i], linea[i + 1]);
+                ctx.lineTo(px, py);
+                if (paso === 0) {
+                  minX = Math.min(minX, px); maxX = Math.max(maxX, px);
+                  minY = Math.min(minY, py); maxY = Math.max(maxY, py);
+                }
+              }
+              ctx.stroke();
+            }
+          }
+          // Si es diminuta en pantalla, un recuadro delata dónde está
+          const anchoPx = maxX - minX;
+          const altoPx = maxY - minY;
+          if (Number.isFinite(anchoPx) &&
+              Math.max(anchoPx, altoPx) < MINIMO_VISIBLE_PX) {
+            const m = 10;
+            ctx.strokeStyle = COLOR_ELEGIDA;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 3]);
+            ctx.strokeRect(minX - m, minY - m, anchoPx + m * 2, altoPx + m * 2);
+            ctx.setLineDash([]);
+          }
+        } else {
+          // Textos y puntos: círculo con halo, siempre del mismo tamaño
+          const p = e as unknown as { x: number; y: number };
+          const [sx, sy] = aPx(p.x, p.y);
+          for (const paso of [0, 1]) {
+            ctx.beginPath();
+            ctx.arc(sx, sy, 7, 0, Math.PI * 2);
+            ctx.strokeStyle = paso === 0 ? 'rgba(0,0,0,0.75)' : COLOR_ELEGIDA;
+            ctx.lineWidth = paso === 0 ? 5 : 2.5;
+            ctx.stroke();
+          }
         }
       }
       ctx.restore();
-      // Marca los textos y puntos elegidos, que no tienen trazo que engrosar
-      const radio = 5;
-      for (const e of geometria.entidades) {
-        if (!elegidos.has(e.h) || 'p' in e) continue;
-        const p = e as unknown as { x: number; y: number };
-        const sx = ancho / 2 + (p.x - cx) * escala;
-        const sy = alto / 2 - (p.y - cy) * escala;
-        ctx.beginPath();
-        ctx.arc(sx, sy, radio, 0, Math.PI * 2);
-        ctx.strokeStyle = COLOR_ELEGIDA;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
     }
 
     // resaltado de la selección
@@ -317,10 +365,15 @@ export default function Visor({
   const alPresionar = useCallback((ev: React.MouseEvent) => {
     if (modoArea && ev.button === 0) {
       const rect = refLienzo.current!.getBoundingClientRect();
-      refTrazo.current = [aMundo(ev.clientX - rect.left, ev.clientY - rect.top)];
+      const inicio = aMundo(ev.clientX - rect.left, ev.clientY - rect.top);
+      refInicioArea.current = inicio;
+      refTrazo.current = [inicio];
       return;
     }
-    refArrastre.current = { x: ev.clientX, y: ev.clientY, movido: false };
+    refArrastre.current = {
+      x: ev.clientX, y: ev.clientY, movido: false,
+      x0: ev.clientX, y0: ev.clientY
+    };
   }, [modoArea, aMundo]);
 
   const alMover = useCallback((ev: React.MouseEvent) => {
@@ -330,8 +383,16 @@ export default function Visor({
 
     const trazo = refTrazo.current;
     if (trazo) {
-      // Se añade un punto solo cuando el cursor avanzó lo suficiente, para
-      // no acumular miles de vértices casi idénticos.
+      if (formaArea === 'rectangulo') {
+        // El trazo son las cuatro esquinas: la inicial manda una, el cursor
+        // la opuesta.
+        const [ax, ay] = refInicioArea.current!;
+        refTrazo.current = [[ax, ay], [wx, ay], [wx, wy], [ax, wy]];
+        refPintar.current();
+        return;
+      }
+      // A mano alzada: se añade un punto solo cuando el cursor avanzó lo
+      // suficiente, para no acumular miles de vértices casi idénticos.
       const [ux, uy] = trazo[trazo.length - 1];
       const escala = refCamara.current.escala;
       if (Math.hypot(wx - ux, wy - uy) * escala >= PASO_TRAZO) {
@@ -345,7 +406,12 @@ export default function Visor({
     if (!arrastre) return;
     const dx = ev.clientX - arrastre.x;
     const dy = ev.clientY - arrastre.y;
-    if (Math.abs(dx) + Math.abs(dy) > 2) arrastre.movido = true;
+    // El desplazamiento se mide desde donde SE PULSÓ, no desde el último
+    // punto: así un pequeño temblor con el botón pulsado no cancela el clic
+    // (era lo que hacía fallar el Ctrl+clic para añadir a la selección).
+    if (Math.hypot(ev.clientX - arrastre.x0, ev.clientY - arrastre.y0) > UMBRAL_CLIC_PX) {
+      arrastre.movido = true;
+    }
     if (arrastre.movido) {
       const cam = refCamara.current;
       cam.cx -= dx / cam.escala;
@@ -354,11 +420,12 @@ export default function Visor({
       arrastre.y = ev.clientY;
       refPintar.current();
     }
-  }, [aMundo, onCursor]);
+  }, [aMundo, onCursor, formaArea]);
 
   const terminarTrazo = useCallback(() => {
     const trazo = refTrazo.current;
     refTrazo.current = null;
+    refInicioArea.current = null;
     if (!trazo) return false;
     // Menos de 3 puntos no encierra ningún área: se interpreta como "limpiar"
     onArea(trazo.length >= 3 ? trazo : null);

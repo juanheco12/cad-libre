@@ -18,6 +18,10 @@ sistema de coordenadas (CRS/EPSG), capas, bloques, textos, polilíneas y cotas.
   las capas visibles y/o un contorno dibujado a mano alzada.
 - **Salida a Shapefile** además de DXF: genera `_poligonos`, `_lineas`,
   `_puntos` y `_textos`, cada uno con su `.prj`, listos para QGIS y ArcGIS.
+- **Salida a PDF** vectorial: conserva los colores del dibujo, oscureciendo
+  solo los tonos que no se leerían sobre papel blanco. Al pie anota la escala
+  de impresión, el EPSG y el rango de coordenadas.
+- El área a exportar se marca **a mano alzada o como rectángulo**.
 - **Actualización automática** desde GitHub Releases.
 
 ## Garantía de fidelidad
@@ -52,6 +56,7 @@ CAD LIBRE/
 │   ├── render_json.py    # Geometría del visor (aplanado de curvas, bloques, cotas)
 │   ├── filtro.py         # Exportación selectiva por capas, contorno o selección
 │   ├── shp.py            # Exportación a shapefile (polígonos/líneas/puntos/textos)
+│   ├── pdf.py            # Exportación a PDF vectorial con contraste para papel
 │   ├── geometria2d.py    # Punto-en-polígono para el contorno libre
 │   ├── verify.py         # Inventario: capas, bloques, entidades, extensión
 │   ├── bridge.py         # CLI JSON que consume Electron (abrir/exportar/motor)

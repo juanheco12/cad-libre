@@ -24,7 +24,8 @@ export default function DialogoExportar({
   const hayElegidas = elegidos.size > 0;
   const hayFiltros = ocultas.length > 0 || area !== null;
 
-  const [formato, setFormato] = useState<'dxf' | 'shp'>('dxf');
+  const [formato, setFormato] = useState<'dxf' | 'shp' | 'pdf'>('dxf');
+  const [tamanoPdf, setTamanoPdf] = useState<'A4' | 'A3'>('A4');
   const [alcance, setAlcance] = useState<Alcance>(
     hayElegidas ? 'seleccion' : hayFiltros ? 'filtros' : 'todo'
   );
@@ -34,6 +35,7 @@ export default function DialogoExportar({
 
   const exportar = () => {
     const opciones: OpcionesExportar = { formato };
+    if (formato === 'pdf') opciones.tamanoPdf = tamanoPdf;
     if (alcance === 'seleccion' && hayElegidas) {
       opciones.handles = [...elegidos];
     } else if (alcance === 'filtros') {
@@ -72,7 +74,32 @@ export default function DialogoExportar({
               Shapefile
               <small>Capas SIG para QGIS</small>
             </button>
+            <button
+              className={formato === 'pdf' ? 'activo' : ''}
+              onClick={() => setFormato('pdf')}
+            >
+              PDF
+              <small>Plano para imprimir</small>
+            </button>
           </div>
+          {formato === 'pdf' && (
+            <div className="modo-area">
+              <label>
+                <input
+                  type="radio" name="tamanoPdf" checked={tamanoPdf === 'A4'}
+                  onChange={() => setTamanoPdf('A4')}
+                />
+                Hoja A4
+              </label>
+              <label>
+                <input
+                  type="radio" name="tamanoPdf" checked={tamanoPdf === 'A3'}
+                  onChange={() => setTamanoPdf('A3')}
+                />
+                Hoja A3
+              </label>
+            </div>
+          )}
         </div>
 
         <span className="etiqueta-grupo">Qué exportar</span>
@@ -162,7 +189,9 @@ export default function DialogoExportar({
             <small>
               {formato === 'dxf'
                 ? 'Copia 1:1 exacta: ninguna entidad se toca.'
-                : 'Todas las entidades del plano, repartidas por tipo de geometría.'}
+                : formato === 'shp'
+                  ? 'Todas las entidades, repartidas por tipo de geometría.'
+                  : 'Todo el plano encuadrado en la hoja.'}
             </small>
           </div>
         </label>
@@ -171,15 +200,19 @@ export default function DialogoExportar({
           {formato === 'shp'
             ? 'Se generan hasta cuatro archivos (polígonos, líneas, puntos y textos), ' +
               'cada uno con su .prj. Las coordenadas son las originales del plano.'
-            : 'Las coordenadas y la georreferenciación se conservan intactas; ' +
-              'junto al DXF se generan el .prj y los metadatos.'}
+            : formato === 'pdf'
+              ? 'PDF vectorial con los colores del dibujo, oscureciendo solo los ' +
+                'tonos que no se leerían sobre papel blanco. Al pie va la escala y ' +
+                'el rango de coordenadas.'
+              : 'Las coordenadas y la georreferenciación se conservan intactas; ' +
+                'junto al DXF se generan el .prj y los metadatos.'}
           {documento.georref.epsg ? ` EPSG:${documento.georref.epsg}.` : ''}
         </p>
 
         <div className="acciones-dialogo">
           <button onClick={onCancelar}>Cancelar</button>
           <button className="principal" onClick={exportar}>
-            ⬇ Exportar {formato === 'shp' ? 'Shapefile' : 'DXF'}
+            ⬇ Exportar {formato === 'shp' ? 'Shapefile' : formato === 'pdf' ? 'PDF' : 'DXF'}
           </button>
         </div>
       </div>

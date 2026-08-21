@@ -24,6 +24,7 @@ import traceback
 
 from .converter import VERSION_SALIDA_DEFECTO, convertir_dwg_a_dxf, detectar_motor
 from .filtro import exportar_filtrado
+from .pdf import exportar_pdf
 from .shp import exportar_shp
 from .geodata import escribir_sidecars, leer_georreferenciacion
 from .render_json import extraer_geometria
@@ -107,6 +108,25 @@ def cmd_exportar(args):
     # el formato SHP no la lleva dentro y necesita el WKT para su .prj.
     info_origen = leer_georreferenciacion(origen)
 
+    if args.formato == "pdf":
+        r = exportar_pdf(
+            origen, destino, capas, area, args.modo_area, handles,
+            args.tamano_pdf, info_origen.epsg,
+        )
+        _responder({
+            "ok": True,
+            "formato": "pdf",
+            "pdf": r.ruta,
+            "epsg": info_origen.epsg,
+            "nombreCrs": info_origen.nombre_crs,
+            "resumenPdf": {
+                "entidades": r.entidades,
+                "textos": r.textos,
+                "omitidas": r.omitidas,
+                "escala": r.escala,
+            },
+        })
+
     if args.formato == "shp":
         base = os.path.splitext(destino)[0]
         r = exportar_shp(
@@ -184,8 +204,12 @@ def main():
     p.add_argument("--poligono", help="JSON [[x,y], …] con el contorno libre dibujado")
     p.add_argument("--handles", help="JSON con los handles de las entidades elegidas")
     p.add_argument(
-        "--formato", default="dxf", choices=["dxf", "shp"],
-        help="dxf: copia fiel; shp: shapefiles para QGIS/ArcGIS",
+        "--formato", default="dxf", choices=["dxf", "shp", "pdf"],
+        help="dxf: copia fiel; shp: shapefiles para QGIS/ArcGIS; pdf: plano vectorial",
+    )
+    p.add_argument(
+        "--tamano-pdf", default="A4", choices=["A4", "A3"],
+        help="Tamaño de hoja del PDF",
     )
     p.add_argument(
         "--modo-area", default="contenida", choices=["contenida", "intersecta"],

@@ -105,7 +105,8 @@ ipcMain.handle('archivo:abrir', async () => {
 });
 
 interface OpcionesExportar {
-  formato?: 'dxf' | 'shp';
+  formato?: 'dxf' | 'shp' | 'pdf';
+  tamanoPdf?: 'A4' | 'A3';
   capas?: string[];
   poligono?: [number, number][];
   modoArea?: 'contenida' | 'intersecta';
@@ -114,20 +115,29 @@ interface OpcionesExportar {
 
 ipcMain.handle('archivo:exportar', async (_ev, opciones?: OpcionesExportar) => {
   if (!dxfActual) return { ok: false, error: 'No hay ningún dibujo abierto.' };
-  const esShp = opciones?.formato === 'shp';
+  const formato = opciones?.formato ?? 'dxf';
+  const esShp = formato === 'shp';
   const base = path.basename(dxfActual, path.extname(dxfActual));
+  const titulos = {
+    dxf: 'Exportar DXF georreferenciado',
+    shp: 'Exportar shapefiles georreferenciados',
+    pdf: 'Exportar plano en PDF'
+  };
   const seleccion = await dialog.showSaveDialog(ventana!, {
-    title: esShp ? 'Exportar shapefiles georreferenciados' : 'Exportar DXF georreferenciado',
+    title: titulos[formato],
     // En SHP el nombre elegido es la BASE: el motor añade _lineas, _poligonos…
-    defaultPath: esShp ? base : base + '.dxf',
+    defaultPath: esShp ? base : base + '.' + formato,
     filters: esShp
       ? [{ name: 'Shapefile', extensions: ['shp'] }]
-      : [{ name: 'DXF', extensions: ['dxf'] }]
+      : formato === 'pdf'
+        ? [{ name: 'PDF', extensions: ['pdf'] }]
+        : [{ name: 'DXF', extensions: ['dxf'] }]
   });
   if (seleccion.canceled || !seleccion.filePath) return { ok: false, cancelado: true };
 
   const args = ['exportar', dxfActual, seleccion.filePath];
   if (opciones?.formato) args.push('--formato', opciones.formato);
+  if (opciones?.tamanoPdf) args.push('--tamano-pdf', opciones.tamanoPdf);
   if (opciones?.capas) args.push('--capas', JSON.stringify(opciones.capas));
   if (opciones?.poligono) args.push('--poligono', JSON.stringify(opciones.poligono));
   if (opciones?.modoArea) args.push('--modo-area', opciones.modoArea);

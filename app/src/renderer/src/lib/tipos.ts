@@ -77,8 +77,10 @@ export interface Seleccion {
 
 /** Filtros de la exportación selectiva; vacío = todo el dibujo (copia 1:1). */
 export interface OpcionesExportar {
-  /** dxf conserva el archivo tal cual; shp genera capas para QGIS/ArcGIS. */
-  formato?: 'dxf' | 'shp';
+  /** dxf conserva el archivo tal cual; shp da capas SIG; pdf un plano imprimible. */
+  formato?: 'dxf' | 'shp' | 'pdf';
+  /** Tamaño de hoja del PDF. */
+  tamanoPdf?: 'A4' | 'A3';
   /** Capas a conservar; undefined = todas. */
   capas?: string[];
   /** Contorno cerrado [[x, y], …] en coordenadas del dibujo. */
@@ -87,6 +89,13 @@ export interface OpcionesExportar {
   modoArea?: 'contenida' | 'intersecta';
   /** Handles de las entidades elegidas una a una; manda sobre los demás filtros. */
   handles?: string[];
+}
+
+export interface ResumenPdf {
+  entidades: number;
+  textos: number;
+  omitidas: number;
+  escala: string;
 }
 
 export interface ResumenShp {

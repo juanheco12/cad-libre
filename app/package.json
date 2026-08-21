@@ -1,6 +1,6 @@
 {
   "name": "cad-libre",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Visor DWG y exportador a DXF con preservación total de georreferenciación",
   "main": "out/main/index.js",
   "author": "Juan Hernandez",

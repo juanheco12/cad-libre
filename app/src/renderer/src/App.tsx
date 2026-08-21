@@ -8,7 +8,8 @@ import PanelCapas from './components/PanelCapas';
 import Visor from './components/Visor';
 import { TEMAS, guardarTema, leerTemaGuardado, type NombreTema } from './lib/tema';
 import type {
-  Documento, InfoActualizacion, OpcionesExportar, ResumenFiltrado, ResumenShp, Seleccion
+  Documento, InfoActualizacion, OpcionesExportar, ResumenFiltrado, ResumenPdf,
+  ResumenShp, Seleccion
 } from './lib/tipos';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
   const [ocupado, setOcupado] = useState(false);
   const [ajustarSenal, setAjustarSenal] = useState(0);
   const [modoArea, setModoArea] = useState(false);
+  const [formaArea, setFormaArea] = useState<'libre' | 'rectangulo'>('libre');
   const [area, setArea] = useState<[number, number][] | null>(null);
   const [dialogoExportar, setDialogoExportar] = useState(false);
   const [tema, setTema] = useState<NombreTema>(leerTemaGuardado);
@@ -99,7 +101,11 @@ export default function App() {
         return;
       }
       let base: string;
-      if (r.formato === 'shp') {
+      if (r.formato === 'pdf') {
+        const p = r.resumenPdf as ResumenPdf;
+        base = `PDF exportado: ${p.entidades} entidades` +
+          (p.textos ? `, ${p.textos} textos` : '') + ` · escala ${p.escala}`;
+      } else if (r.formato === 'shp') {
         const shp = r.resumenShp as ResumenShp;
         const partes = [
           shp.poligonos ? `${shp.poligonos} polígonos` : '',
@@ -153,6 +159,8 @@ export default function App() {
         documento={documento}
         ocupado={ocupado}
         modoArea={modoArea}
+        formaArea={formaArea}
+        onFormaArea={setFormaArea}
         hayArea={area !== null}
         elegidas={elegidos.size}
         onLimpiarSeleccion={() => setElegidos(new Set())}
@@ -184,6 +192,7 @@ export default function App() {
                 ajustarSenal={ajustarSenal}
                 tema={TEMAS[tema]}
                 modoArea={modoArea}
+                formaArea={formaArea}
                 area={area}
                 onArea={(a) => { setArea(a); if (a) setModoArea(false); }}
                 elegidos={elegidos}
@@ -191,7 +200,9 @@ export default function App() {
               />
               {modoArea && (
                 <div className="pista-area">
-                  Mantenga pulsado y dibuje el contorno de lo que quiere exportar
+                  {formaArea === 'libre'
+                    ? 'Mantenga pulsado y dibuje el contorno de lo que quiere exportar'
+                    : 'Mantenga pulsado y arrastre para marcar un rectángulo'}
                 </div>
               )}
             </>
