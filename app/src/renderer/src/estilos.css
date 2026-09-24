@@ -267,3 +267,65 @@ select.forma-area {
 }
 select.forma-area:hover:not(:disabled) { border-color: var(--verde); color: var(--verde); }
 select.forma-area:disabled { opacity: 0.45; cursor: default; }
+
+/* ---- columna izquierda: capas + satelital ---- */
+.columna-izquierda {
+  display: flex; flex-direction: column; min-height: 0;
+  width: 230px; border-right: 1px solid var(--borde); background: var(--panel);
+}
+.columna-izquierda .panel-capas { width: auto; border-right: none; flex: 1; }
+
+/* ---- panel de imagen satelital ---- */
+.panel-satelite {
+  border-top: 1px solid var(--borde); padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px; font-size: 12px;
+}
+.panel-satelite .fila-titulo {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.panel-satelite .titulo { color: var(--verde); font-weight: 600; }
+.panel-satelite p { color: var(--tenue); line-height: 1.4; }
+.panel-satelite .crs-actual {
+  color: var(--tenue); overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panel-satelite select {
+  background: var(--control); color: var(--texto);
+  border: 1px solid var(--borde); border-radius: 6px; padding: 4px 6px;
+  font-size: 12px; cursor: pointer;
+}
+.panel-satelite .deslizador {
+  display: flex; align-items: center; gap: 6px; color: var(--tenue);
+}
+.panel-satelite .deslizador input { flex: 1; accent-color: var(--verde); }
+.panel-satelite .atribucion { color: var(--tenue); opacity: 0.7; font-size: 10px; }
+.panel-satelite .aviso { color: #ffb347; font-size: 11px; }
+
+/* interruptor de encendido */
+.interruptor { position: relative; display: inline-block; width: 36px; height: 20px; }
+.interruptor input { opacity: 0; width: 0; height: 0; }
+.interruptor .palanca {
+  position: absolute; inset: 0; cursor: pointer; border-radius: 20px;
+  background: var(--control); border: 1px solid var(--borde);
+  transition: background 0.15s;
+}
+.interruptor .palanca::before {
+  content: ''; position: absolute; width: 14px; height: 14px; left: 2px; top: 2px;
+  background: var(--tenue); border-radius: 50%; transition: transform 0.15s;
+}
+.interruptor input:checked + .palanca {
+  background: rgba(57, 255, 20, 0.25); border-color: var(--verde);
+}
+.interruptor input:checked + .palanca::before {
+  transform: translateX(16px); background: var(--verde);
+}
+
+/* sugerencias de sistema de coordenadas */
+.sugerencias { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.sugerencias button {
+  width: 100%; display: flex; flex-direction: column; align-items: flex-start;
+  gap: 1px; padding: 7px 9px; text-align: left;
+}
+.sugerencias button strong { color: var(--verde); font-size: 12px; }
+.sugerencias button span { font-size: 11px; }
+.sugerencias button small { color: var(--tenue); font-size: 10px; }

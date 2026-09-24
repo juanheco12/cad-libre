@@ -14,6 +14,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { Entidad, EntidadPolilinea, EntidadTexto, Geometria, Seleccion } from '../lib/tipos';
 import { colorVisible, type Tema } from '../lib/tema';
+import {
+  CacheTiles, Proyector, tilesParaVista, zoomParaEscala
+} from '../lib/satelite';
 
 interface Props {
   geometria: Geometria | null;
@@ -22,6 +25,12 @@ interface Props {
   onSeleccion: (s: Seleccion | null) => void;
   /** Handles de las entidades elegidas para exportar. */
   elegidos: Set<string>;
+  /** Cadena proj4 del sistema del plano; null = no se puede georreferenciar. */
+  proj4Plano: string | null;
+  /** Fuente de mosaicos activa, o null si la capa está apagada. */
+  fuenteSatelital: string | null;
+  /** Opacidad de la imagen de fondo, 0 a 1. */
+  opacidadSatelital: number;
   /** Alterna una entidad en la selección (clic) o la deja como única (sin acumular). */
   onElegir: (handle: string, acumular: boolean) => void;
   onCursor: (x: number, y: number) => void;
@@ -62,7 +71,8 @@ const PASO_TRAZO = 4;
 
 export default function Visor({
   geometria, capasVisibles, seleccion, onSeleccion, onCursor, ajustarSenal,
-  tema, modoArea, formaArea, area, onArea, elegidos, onElegir
+  tema, modoArea, formaArea, area, onArea, elegidos, onElegir,
+  proj4Plano, fuenteSatelital, opacidadSatelital
 }: Props) {
   const refLienzo = useRef<HTMLCanvasElement>(null);
   const refCamara = useRef<Camara>({ escala: 1, cx: 0, cy: 0 });
@@ -74,6 +84,11 @@ export default function Visor({
   const refTrazo = useRef<[number, number][] | null>(null);
   /** Esquina donde empezó el rectángulo. */
   const refInicioArea = useRef<[number, number] | null>(null);
+  /** Mosaicos ya descargados; se repinta cuando llega uno nuevo. */
+  const refCacheTiles = useRef<CacheTiles | null>(null);
+  if (refCacheTiles.current === null) {
+    refCacheTiles.current = new CacheTiles(() => refPintar.current());
+  }
 
   // ---- compilación de la geometría a Path2D por (capa, color) -------------
   const grupos = useMemo<GrupoTrazo[]>(() => {
@@ -96,6 +111,15 @@ export default function Visor({
     }
     return [...mapa.values()];
   }, [geometria]);
+
+  const proyector = useMemo(() => {
+    if (!proj4Plano) return null;
+    try {
+      return new Proyector(proj4Plano);
+    } catch {
+      return null; // definición que proj4 no entiende: se sigue sin fondo
+    }
+  }, [proj4Plano]);
 
   const textos = useMemo<EntidadTexto[]>(
     () => (geometria ? geometria.entidades.filter((e): e is EntidadTexto => e.t === 'TEXTO') : []),
@@ -150,6 +174,43 @@ export default function Visor({
     if (!geometria) return;
 
     const { escala, cx, cy } = refCamara.current;
+
+    // ---- imagen satelital, debajo de todo lo demás ----
+    if (proyector && fuenteSatelital && opacidadSatelital > 0) {
+      const vista = {
+        minX: cx - ancho / 2 / escala, maxX: cx + ancho / 2 / escala,
+        minY: cy - alto / 2 / escala, maxY: cy + alto / 2 / escala
+      };
+      // Los mosaicos son cuadrados en Mercator; se elige el nivel de zoom
+      // cuyo detalle coincide con los metros por píxel que se están viendo.
+      const [, latitud] = (() => {
+        try {
+          const [mx, my] = proyector.planoAMercator(cx, cy);
+          const lat = (Math.atan(Math.sinh(my / 6378137)) * 180) / Math.PI;
+          return [mx, lat];
+        } catch {
+          return [0, 0];
+        }
+      })();
+      const z = zoomParaEscala(1 / escala, latitud, 19);
+      const tiles = tilesParaVista(proyector, vista, z);
+      if (tiles.length) {
+        ctx.save();
+        ctx.globalAlpha = opacidadSatelital;
+        ctx.imageSmoothingEnabled = true;
+        for (const t of tiles) {
+          const imagen = refCacheTiles.current!.obtener(fuenteSatelital, t);
+          if (!imagen) continue;
+          const px = ancho / 2 + (t.minX - cx) * escala;
+          const py = alto / 2 - (t.maxY - cy) * escala;
+          const anchoPx = (t.maxX - t.minX) * escala;
+          const altoPx = (t.maxY - t.minY) * escala;
+          // +1 px evita las costuras claras entre mosaicos contiguos
+          ctx.drawImage(imagen, px, py, anchoPx + 1, altoPx + 1);
+        }
+        ctx.restore();
+      }
+    }
     const aPantalla = () =>
       ctx.transform(escala, 0, 0, -escala, ancho / 2 - cx * escala, alto / 2 + cy * escala);
 
@@ -302,7 +363,8 @@ export default function Visor({
       }
       ctx.restore();
     }
-  }, [geometria, grupos, textos, puntos, capasVisibles, seleccion, area, tema, elegidos]);
+  }, [geometria, grupos, textos, puntos, capasVisibles, seleccion, area, tema,
+      elegidos, proyector, fuenteSatelital, opacidadSatelital]);
 
   refPintar.current = pintar;
 

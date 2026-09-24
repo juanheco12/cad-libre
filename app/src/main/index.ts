@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { iniciarActualizador } from './actualizador';
 import { ejecutarBridge } from './python';
+import { FUENTES, obtenerTile, tamanoCache } from './satelite';
 
 let ventana: BrowserWindow | null = null;
 let workdir: string | null = null;
@@ -64,6 +65,25 @@ ipcMain.handle('motor:estado', async () => ejecutarBridge(['motor']));
 
 ipcMain.handle('app:version', () => app.getVersion());
 
+// ------------------------------------------------------ imagen satelital
+ipcMain.handle('satelite:fuentes', () =>
+  FUENTES.map(({ id, nombre, atribucion, zoomMaximo, requiereClave }) => ({
+    id, nombre, atribucion, zoomMaximo, requiereClave: !!requiereClave
+  }))
+);
+
+ipcMain.handle(
+  'satelite:tile',
+  (_ev, fuente: string, z: number, x: number, y: number, clave?: string) =>
+    obtenerTile(fuente, z, x, y, clave)
+);
+
+ipcMain.handle('satelite:cache', () => tamanoCache());
+
+ipcMain.handle('crs:info', (_ev, epsg: number) =>
+  ejecutarBridge(['crs', '--epsg', String(epsg)])
+);
+
 /** Libera el dibujo actual y su geometría temporal. */
 ipcMain.handle('archivo:cerrar', () => {
   if (workdir) {
@@ -111,6 +131,7 @@ interface OpcionesExportar {
   poligono?: [number, number][];
   modoArea?: 'contenida' | 'intersecta';
   handles?: string[];
+  epsg?: number;
 }
 
 ipcMain.handle('archivo:exportar', async (_ev, opciones?: OpcionesExportar) => {
@@ -142,6 +163,7 @@ ipcMain.handle('archivo:exportar', async (_ev, opciones?: OpcionesExportar) => {
   if (opciones?.poligono) args.push('--poligono', JSON.stringify(opciones.poligono));
   if (opciones?.modoArea) args.push('--modo-area', opciones.modoArea);
   if (opciones?.handles) args.push('--handles', JSON.stringify(opciones.handles));
+  if (opciones?.epsg) args.push('--epsg', String(opciones.epsg));
 
   const respuesta = await ejecutarBridge(args);
   if (respuesta.ok) {

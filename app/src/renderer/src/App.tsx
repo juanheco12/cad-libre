@@ -3,13 +3,14 @@ import { useCallback, useEffect, useState } from 'react';
 import AvisoActualizacion from './components/AvisoActualizacion';
 import BarraEstado from './components/BarraEstado';
 import BarraHerramientas from './components/BarraHerramientas';
+import ControlSatelital from './components/ControlSatelital';
 import DialogoExportar from './components/DialogoExportar';
 import PanelCapas from './components/PanelCapas';
 import Visor from './components/Visor';
 import { TEMAS, guardarTema, leerTemaGuardado, type NombreTema } from './lib/tema';
 import type {
-  Documento, InfoActualizacion, OpcionesExportar, ResumenFiltrado, ResumenPdf,
-  ResumenShp, Seleccion
+  Documento, FuenteSatelital, InfoActualizacion, OpcionesExportar, Proyeccion,
+  ResumenFiltrado, ResumenPdf, ResumenShp, Seleccion
 } from './lib/tipos';
 
 export default function App() {
@@ -29,12 +30,18 @@ export default function App() {
   const [dialogoExportar, setDialogoExportar] = useState(false);
   const [tema, setTema] = useState<NombreTema>(leerTemaGuardado);
   const [version, setVersion] = useState('');
+  /** Sistema del plano: el del archivo, o el que el usuario asigne. */
+  const [proyeccion, setProyeccion] = useState<Proyeccion | null>(null);
+  const [fuentes, setFuentes] = useState<FuenteSatelital[]>([]);
+  const [fuenteSatelital, setFuenteSatelital] = useState<string | null>(null);
+  const [opacidadSatelital, setOpacidadSatelital] = useState(0.85);
   const [actualizacion, setActualizacion] = useState<InfoActualizacion | null>(null);
 
   useEffect(() => {
     if (!window.cadlibre) return; // navegador sin Electron (solo para depurar estilos)
     window.cadlibre.estadoMotor().then((r) => setMotor(r.motor ?? null));
     window.cadlibre.version().then(setVersion);
+    window.cadlibre.fuentesSatelitales().then(setFuentes);
     return window.cadlibre.alActualizar(setActualizacion);
   }, []);
 
@@ -61,6 +68,10 @@ export default function App() {
       setCapasVisibles(visibles);
       setSeleccion(null);
       setElegidos(new Set());
+      setProyeccion(doc.proyeccion ?? null);
+      // Si el plano nuevo no está georreferenciado, se apaga el fondo para
+      // no dejarlo mostrando la zona del plano anterior.
+      if (!doc.proyeccion) setFuenteSatelital(null);
       setArea(null);
       setModoArea(false);
       setAjustarSenal((n) => n + 1);
@@ -83,6 +94,8 @@ export default function App() {
     setCapasVisibles({});
     setSeleccion(null);
     setElegidos(new Set());
+    setProyeccion(null);
+    setFuenteSatelital(null);
     setArea(null);
     setModoArea(false);
     setCursor(null);
@@ -94,7 +107,12 @@ export default function App() {
     setOcupado(true);
     setMensaje(null);
     try {
-      const r = await window.cadlibre.exportarDxf(opciones);
+      // Si el dibujo no traía sistema pero el usuario asignó uno, se usa
+      // para generar los .prj de la exportación.
+      const conEpsg = documento?.georref.epsg || !proyeccion
+        ? opciones
+        : { ...opciones, epsg: proyeccion.epsg };
+      const r = await window.cadlibre.exportarDxf(conEpsg);
       if (r.cancelado) return;
       if (!r.ok) {
         setMensaje(String(r.error ?? 'Error al exportar'));
@@ -129,6 +147,20 @@ export default function App() {
     }
   }, []);
 
+  /** El usuario confirma en qué sistema está el plano (no lo declaraba). */
+  const asignarCrs = useCallback(async (epsg: number) => {
+    const r = await window.cadlibre.infoCrs(epsg);
+    if (!r.ok || !r.proyeccion) {
+      setMensaje(`No se pudo cargar la definición de EPSG:${epsg}`);
+      return;
+    }
+    setProyeccion(r.proyeccion);
+    setMensaje(
+      `Sistema asignado: EPSG:${epsg}. Las coordenadas del dibujo no se ` +
+      'modifican; ahora se sabe cómo interpretarlas.'
+    );
+  }, []);
+
   /** Clic en una entidad: acumula con Ctrl/Shift, reemplaza sin ellos. */
   const elegir = useCallback((handle: string, acumular: boolean) => {
     setElegidos((prev) => {
@@ -139,7 +171,7 @@ export default function App() {
       else nuevo.add(handle);
       return nuevo;
     });
-  }, []);
+  }, [documento, proyeccion]);
 
   const cambiarCapa = useCallback((nombre: string, visible: boolean) => {
     setCapasVisibles((prev) => ({ ...prev, [nombre]: visible }));
@@ -174,12 +206,26 @@ export default function App() {
         onTema={setTema}
       />
       <div className="cuerpo">
-        <PanelCapas
-          capas={documento?.geometria.capas ?? []}
-          visibles={capasVisibles}
-          onCambiar={cambiarCapa}
-          onTodas={todasLasCapas}
-        />
+        <div className="columna-izquierda">
+          <PanelCapas
+            capas={documento?.geometria.capas ?? []}
+            visibles={capasVisibles}
+            onCambiar={cambiarCapa}
+            onTodas={todasLasCapas}
+          />
+          {documento && (
+            <ControlSatelital
+              proyeccion={proyeccion}
+              sugeridos={documento.crsSugeridos ?? []}
+              fuentes={fuentes}
+              fuenteActiva={fuenteSatelital}
+              opacidad={opacidadSatelital}
+              onFuente={setFuenteSatelital}
+              onOpacidad={setOpacidadSatelital}
+              onAsignarCrs={asignarCrs}
+            />
+          )}
+        </div>
         <main className="zona-visor">
           {documento ? (
             <>
@@ -197,6 +243,9 @@ export default function App() {
                 onArea={(a) => { setArea(a); if (a) setModoArea(false); }}
                 elegidos={elegidos}
                 onElegir={elegir}
+                proj4Plano={proyeccion?.proj4 ?? null}
+                fuenteSatelital={fuenteSatelital}
+                opacidadSatelital={opacidadSatelital}
               />
               {modoArea && (
                 <div className="pista-area">

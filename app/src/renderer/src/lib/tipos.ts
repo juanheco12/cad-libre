@@ -64,6 +64,10 @@ export interface Inventario {
 export interface Documento {
   origen: string;
   dxf: string;
+  /** Sistema del dibujo, si lo declara el archivo. */
+  proyeccion: Proyeccion | null;
+  /** Sistemas plausibles cuando no lo declara, para que el usuario elija. */
+  crsSugeridos: CrsSugerido[];
   geometria: Geometria;
   georref: Georref;
   inventario: Inventario;
@@ -89,6 +93,30 @@ export interface OpcionesExportar {
   modoArea?: 'contenida' | 'intersecta';
   /** Handles de las entidades elegidas una a una; manda sobre los demás filtros. */
   handles?: string[];
+  /** EPSG asignado a mano cuando el dibujo no declara su sistema. */
+  epsg?: number;
+}
+
+export interface Proyeccion {
+  epsg: number;
+  nombre: string;
+  proj4: string | null;
+  wkt: string | null;
+}
+
+export interface CrsSugerido {
+  epsg: number;
+  nombre: string;
+  lon: number;
+  lat: number;
+}
+
+export interface FuenteSatelital {
+  id: string;
+  nombre: string;
+  atribucion: string;
+  zoomMaximo: number;
+  requiereClave: boolean;
 }
 
 export interface ResumenPdf {
@@ -129,6 +157,12 @@ declare global {
       cerrarArchivo(): Promise<{ ok: boolean }>;
       exportarDxf(opciones?: OpcionesExportar): Promise<Record<string, unknown>>;
       version(): Promise<string>;
+      fuentesSatelitales(): Promise<FuenteSatelital[]>;
+      tileSatelital(
+        fuente: string, z: number, x: number, y: number, clave?: string
+      ): Promise<string | null>;
+      tamanoCacheSatelital(): Promise<number>;
+      infoCrs(epsg: number): Promise<{ ok: boolean; proyeccion?: Proyeccion }>;
       buscarActualizacion(): Promise<InfoActualizacion>;
       instalarActualizacion(): Promise<void>;
       alActualizar(cb: (info: InfoActualizacion) => void): () => void;

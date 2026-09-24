@@ -18,6 +18,10 @@ sistema de coordenadas (CRS/EPSG), capas, bloques, textos, polilíneas y cotas.
   las capas visibles y/o un contorno dibujado a mano alzada.
 - **Salida a Shapefile** además de DXF: genera `_poligonos`, `_lineas`,
   `_puntos` y `_textos`, cada uno con su `.prj`, listos para QGIS y ArcGIS.
+- **Imagen satelital de fondo**, que se enciende y apaga: el plano se monta
+  sobre ella en su posición real. Si el DWG no declara su sistema, la app
+  propone los que harían caer el plano dentro de Colombia para que se
+  confirme uno (y ese mismo se usa luego en los `.prj`).
 - **Salida a PDF** vectorial: conserva los colores del dibujo, oscureciendo
   solo los tonos que no se leerían sobre papel blanco. Al pie anota la escala
   de impresión, el EPSG y el rango de coordenadas.
@@ -57,6 +61,7 @@ CAD LIBRE/
 │   ├── filtro.py         # Exportación selectiva por capas, contorno o selección
 │   ├── shp.py            # Exportación a shapefile (polígonos/líneas/puntos/textos)
 │   ├── pdf.py            # Exportación a PDF vectorial con contraste para papel
+│   ├── crs_detect.py     # Deduce el sistema de coordenadas cuando falta
 │   ├── geometria2d.py    # Punto-en-polígono para el contorno libre
 │   ├── verify.py         # Inventario: capas, bloques, entidades, extensión
 │   ├── bridge.py         # CLI JSON que consume Electron (abrir/exportar/motor)
@@ -69,6 +74,17 @@ El visor compila la geometría a objetos `Path2D` agrupados por capa+color y
 solo re-traza con la transformación de cámara en cada cuadro: los dibujos
 grandes se manejan con poca memoria y el JSON del motor se escribe en
 streaming.
+
+## Sobre la imagen satelital
+
+La fuente es **Esri World Imagery**, la misma que QGIS trae de serie: de uso
+libre citando la fuente y sin necesidad de clave. Los mosaicos se guardan en
+una caché local, así que un plano ya visto no vuelve a descargar nada.
+
+No se usan los mosaicos de Google Maps porque sus condiciones de uso exigen
+pasar por su API de pago; tomarlos directamente del servidor de Google
+incumpliría esos términos. Quien tenga una clave propia de la *Map Tiles API*
+puede añadir esa fuente en `app/src/main/satelite.ts`.
 
 ## Requisitos
 

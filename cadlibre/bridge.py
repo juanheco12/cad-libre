@@ -23,6 +23,7 @@ import sys
 import traceback
 
 from .converter import VERSION_SALIDA_DEFECTO, convertir_dwg_a_dxf, detectar_motor
+from .crs_detect import info_crs, sugerir_crs
 from .filtro import exportar_filtrado
 from .pdf import exportar_pdf
 from .shp import exportar_shp
@@ -57,6 +58,21 @@ def cmd_abrir(args):
 
     info = leer_georreferenciacion(ruta_dxf)
     inv = inventariar(ruta_dxf)
+
+    # Para montar el plano sobre la imagen satelital hace falta saber su
+    # sistema de coordenadas. Si el dibujo no lo declara, se ofrecen los
+    # sistemas con los que el plano caería dentro de Colombia.
+    sugerencias = []
+    proyeccion = None
+    if info.epsg:
+        proyeccion = info_crs(info.epsg)
+    elif inv.extmin and inv.extmax:
+        centro_x = (inv.extmin[0] + inv.extmax[0]) / 2
+        centro_y = (inv.extmin[1] + inv.extmax[1]) / 2
+        sugerencias = [
+            {"epsg": c.epsg, "nombre": c.nombre, "lon": c.lon, "lat": c.lat}
+            for c in sugerir_crs(centro_x, centro_y)
+        ]
     nombre = os.path.splitext(os.path.basename(ruta_dxf))[0]
     ruta_geom = os.path.join(args.workdir, nombre + ".geom.json")
     resumen_geom = extraer_geometria(ruta_dxf, ruta_geom)
@@ -72,6 +88,8 @@ def cmd_abrir(args):
             "nombreCrs": info.nombre_crs,
             "observaciones": info.observaciones,
         },
+        "proyeccion": proyeccion,
+        "crsSugeridos": sugerencias,
         "inventario": {
             "versionDxf": inv.version_dxf,
             "unidades": inv.unidades,
@@ -107,6 +125,18 @@ def cmd_exportar(args):
     # La georreferenciación se lee del ORIGEN: el filtrado la conserva, pero
     # el formato SHP no la lleva dentro y necesita el WKT para su .prj.
     info_origen = leer_georreferenciacion(origen)
+    if args.epsg and not info_origen.epsg:
+        # El dibujo no lo declaraba: se toma el que indicó el usuario para
+        # generar los .prj. Las coordenadas no se tocan, solo se documenta
+        # en qué sistema hay que interpretarlas.
+        elegido = info_crs(int(args.epsg))
+        info_origen.epsg = elegido["epsg"]
+        info_origen.nombre_crs = elegido["nombre"]
+        info_origen.wkt_esri = elegido["wkt"] or info_origen.wkt_esri
+        info_origen.observaciones.append(
+            f"EPSG:{elegido['epsg']} asignado manualmente en CAD LIBRE "
+            "(el DWG no traía georreferenciación embebida)."
+        )
 
     if args.formato == "pdf":
         r = exportar_pdf(
@@ -176,6 +206,21 @@ def cmd_exportar(args):
     })
 
 
+def cmd_crs(args):
+    """Datos de un EPSG concreto, o sugerencias para unas coordenadas."""
+    if args.epsg:
+        _responder({"ok": True, "proyeccion": info_crs(int(args.epsg))})
+    if args.x is None or args.y is None:
+        _fallar("Indique --epsg, o bien --x y --y para pedir sugerencias.")
+    _responder({
+        "ok": True,
+        "crsSugeridos": [
+            {"epsg": c.epsg, "nombre": c.nombre, "lon": c.lon, "lat": c.lat}
+            for c in sugerir_crs(float(args.x), float(args.y))
+        ],
+    })
+
+
 def cmd_motor(_args):
     motor = detectar_motor()
     _responder({
@@ -212,10 +257,20 @@ def main():
         help="Tamaño de hoja del PDF",
     )
     p.add_argument(
+        "--epsg",
+        help="EPSG asignado a mano cuando el dibujo no declara su sistema",
+    )
+    p.add_argument(
         "--modo-area", default="contenida", choices=["contenida", "intersecta"],
         help="contenida: solo lo totalmente dentro; intersecta: también lo que toca el borde",
     )
     p.set_defaults(func=cmd_exportar)
+
+    p = sub.add_parser("crs")
+    p.add_argument("--epsg")
+    p.add_argument("--x")
+    p.add_argument("--y")
+    p.set_defaults(func=cmd_crs)
 
     p = sub.add_parser("motor")
     p.set_defaults(func=cmd_motor)
